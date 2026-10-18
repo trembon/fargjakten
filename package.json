@@ -1,0 +1,19 @@
+{
+  "name": "fargjakten",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Färgjakten – ett voxel-färgspel för hemmanätverket",
+  "scripts": {
+    "build": "esbuild client/src/main.js --bundle --minify --sourcemap --target=safari15 --outfile=public/game.js",
+    "start": "node server/index.js",
+    "dev": "npm run build && node server/index.js"
+  },
+  "dependencies": {
+    "three": "^0.169.0",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.2"
+  }
+}

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Färgjakten">
+  <meta name="theme-color" content="#7ccf4a">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="manifest" href="manifest.json">
+  <title>Färgjakten</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Själva spelet -->
+  <div id="game">
+    <canvas id="view"></canvas>
+    <div id="crosshair"></div>
+    <div id="hit-flash"></div>
+
+    <div id="hud-top">
+      <div class="pill" id="stat-food">🍎 <b>0</b></div>
+      <div class="pill" id="stat-score">⭐ <b>0</b></div>
+      <div class="pill" id="teams"></div>
+    </div>
+    <div id="scoreboard"></div>
+
+    <div id="meter-wrap">
+      <div id="meter-label">Färg på dig</div>
+      <div id="meter"><div id="meter-fill"></div></div>
+    </div>
+
+    <div id="toast"></div>
+    <div id="big-text"></div>
+    <div id="home-hint">🏠 Du är hemma och skyddad. Här kan du handla!</div>
+
+    <div id="stick"><div id="knob"></div></div>
+
+    <div id="buttons">
+      <div class="btn" id="btn-shop" data-btn="shop">🛒<span>Butik</span></div>
+      <div class="btn" id="btn-ability" data-btn="ability">★<span id="ab-name">Förmåga</span><div id="ab-cd"></div></div>
+      <div class="btn" id="btn-jump" data-btn="jump">⬆<span>Hoppa</span></div>
+      <div class="btn" id="btn-shoot" data-btn="shoot">🎨<span>Skjut</span></div>
+    </div>
+    <div class="btn small" id="btn-menu" data-btn="menu">☰</div>
+    <div id="fps"></div>
+    <div id="rotate">📱↻<br>Vrid telefonen på sidan!</div>
+  </div>
+
+  <div id="update-banner" class="hidden">✨ Ny version finns – tryck här!</div>
+
+  <!-- Butiken -->
+  <div id="shop" class="modal hidden">
+    <div class="card">
+      <div class="card-head">
+        <h2>🛒 Butiken</h2>
+        <div class="pill dark">🍎 <b id="shop-food">0</b></div>
+        <button class="close" id="shop-close">✕</button>
+      </div>
+      <div id="shop-list"></div>
+    </div>
+  </div>
+
+  <!-- Meny under spelet -->
+  <div id="menu" class="modal hidden">
+    <div class="card">
+      <div class="card-head"><h2>Meny</h2><button class="close" id="menu-close">✕</button></div>
+      <div class="row">
+        <span>Botar:</span>
+        <div class="seg" id="menu-bots"></div>
+      </div>
+      <div class="row">
+        <button class="big-btn alt" id="menu-sound">🔊 Ljud på</button>
+      </div>
+      <div class="row">
+        <button class="big-btn alt" id="menu-lobby">🐾 Byt djur</button>
+      </div>
+      <div class="row">
+        <button class="big-btn alt" id="menu-update">🔄 Sök uppdatering</button>
+      </div>
+      <p class="help">Tips på datorn: WASD = gå, mus = titta, klick = skjut, mellanslag = hoppa, E = förmåga, B = butik, M = meny.</p>
+    </div>
+  </div>
+
+  <!-- Rundan slut -->
+  <div id="results" class="modal hidden">
+    <div class="card">
+      <h2 id="results-title">🏆 Rundan är slut!</h2>
+      <div id="results-teams"></div>
+      <ol id="results-list"></ol>
+      <p class="help" id="results-next">Ny runda snart…</p>
+    </div>
+  </div>
+
+  <!-- Startsidan -->
+  <div id="lobby">
+    <div class="lobby-inner">
+      <h1>🎨 Färgjakten</h1>
+      <label class="field">
+        <span>Vad heter du?</span>
+        <input id="name" maxlength="14" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Ditt namn">
+      </label>
+      <div class="field">
+        <span>Välj djur</span>
+        <div id="animals"></div>
+        <div id="animal-desc"></div>
+      </div>
+      <div class="field">
+        <span>Välj lag</span>
+        <div id="colors"></div>
+      </div>
+      <div class="field">
+        <span>Datorstyrda djur (botar)</span>
+        <div class="seg" id="bots"></div>
+      </div>
+      <button class="big-btn" id="play">Spela! ▶</button>
+      <div id="lobby-msg"></div>
+      <button class="link-btn" id="lobby-update">🔄 Sök uppdatering</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
