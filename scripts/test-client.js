@@ -1,5 +1,5 @@
 // Snabbtest: ansluter som en spelare, skjuter på en bot i ett annat lag och kollar att träffar räknas.
-// Tips: WIN_SCORE=10 npm start för att se att rundan tar slut när ett lag når målet.
+// Tips: WIN_SCORE=2 npm start för att se att rundan tar slut när ett lag når målet.
 import WebSocket from 'ws';
 const ws = new WebSocket(`ws://localhost:${process.env.PORT || 4321}`);
 let me = null, snap = null, k = 0, roundEnd = null;

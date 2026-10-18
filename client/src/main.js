@@ -1,7 +1,7 @@
 // Färgjakten – klienten. Startsida, nätverk, spelloop och kamera.
 import * as THREE from 'three';
 import { ANIMALS, ANIMAL_IDS, COLORS, FOODS, PAINT_MAX, TICK_RATE, WEAPONS, WIN_SCORE } from '../../shared/constants.js';
-import { createMap, groundHeight, inBase, pointHitsWorld } from '../../shared/map.js';
+import { POND, createMap, groundHeight, inBase, inPond, pointHitsWorld } from '../../shared/map.js';
 import { createMover, startFly, stepMover, superHop } from '../../shared/movement.js';
 import { Controls } from './controls.js';
 import { Particles, Projectiles } from './effects.js';
@@ -19,6 +19,7 @@ const WEAPON_INFO = [
   { icon: '⚡', desc: 'Skjuter dubbelt så snabbt!' },
   { icon: '🌈', desc: 'Fem regnbågsklickar på en gång!' },
   { icon: '💥', desc: 'Stor smäll som färgar alla runt omkring!' },
+  { icon: '🌊', desc: 'Sprutar en lång färgstråle i full fart!' },
 ];
 
 // Stoppa zoom/scroll-gester i Safari
@@ -72,6 +73,7 @@ const foodView = new FoodView(scene);
 const projectiles = new Projectiles(scene, map);
 const particles = new Particles(scene, 420);
 projectiles.trail = (p) => particles.trail(p.x, p.y, p.z, p.c, p.s * 3);
+projectiles.fizzle = (p) => particles.burst([p.x, p.y, p.z], p.c, 4, 1.5);
 
 function resize() {
   renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -647,6 +649,7 @@ let yaw = 0;
 let pitch = 0.18;
 let camDist = 4.4;
 let inHome = false;
+let washing = false;
 let lastSend = 0;
 let lastShot = 0;
 const camDir = new THREE.Vector3();
@@ -664,7 +667,7 @@ function findAimTarget() {
     if (s && s.ab && ANIMALS[s.an]?.ability === 'hide') continue;
     tmp.set(av.pos.x, av.pos.y + 0.6, av.pos.z).sub(camera.position);
     const d = tmp.length();
-    if (d > 38 || d < 1) continue;
+    if (d > aimRange() + camDist || d < 1) continue;
     const ang = Math.acos(Math.min(1, tmp.dot(camDir) / d));
     if (ang < bestAngle) {
       bestAngle = ang;
@@ -672,6 +675,10 @@ function findAimTarget() {
     }
   }
   return best;
+}
+
+function aimRange() {
+  return WEAPONS[myState ? myState.w : 0].range;
 }
 
 function shoot(now, target) {
@@ -683,11 +690,12 @@ function shoot(now, target) {
     P = [target.pos.x, target.pos.y + 0.6, target.pos.z];
   } else {
     P = null;
-    for (let d = camDist; d < 45; d += 0.5) {
+    const far = camDist + w.range;
+    for (let d = camDist; d < far; d += 0.5) {
       const x = camera.position.x + camDir.x * d, y = camera.position.y + camDir.y * d, z = camera.position.z + camDir.z * d;
       if (pointHitsWorld(map, x, y, z)) { P = [x, y, z]; break; }
     }
-    if (!P) P = [camera.position.x + camDir.x * 45, camera.position.y + camDir.y * 45, camera.position.z + camDir.z * 45];
+    if (!P) P = [camera.position.x + camDir.x * far, camera.position.y + camDir.y * far, camera.position.z + camDir.z * far];
   }
   const dx = P[0] - o[0], dy = P[1] - o[1], dz = P[2] - o[2];
   const t = Math.max(0.05, Math.hypot(dx, dy, dz) / w.speed);
@@ -701,7 +709,7 @@ function shoot(now, target) {
 function updateLocal(dt, now) {
   const [lx, ly] = controls.consumeLook();
   yaw -= lx;
-  pitch = Math.max(-0.35, Math.min(0.85, pitch + ly));
+  pitch = Math.max(-1.05, Math.min(0.85, pitch + ly)); // högt upp så man når flygande örnar
 
   const [ix, iy] = controls.getMove();
   const fx = Math.sin(yaw), fz = Math.cos(yaw);
@@ -743,6 +751,11 @@ function updateLocal(dt, now) {
     send({ t: 'st', x: mover.x, y: mover.y, z: mover.z, ry: yaw, m: me.moving ? 1 : 0, a: me.air ? 1 : 0, k: tpSeq });
   }
 
+  // Tvätta av färgen i dammen
+  const wash = mover.inWater && myState && myState.me > 0;
+  if (wash && !washing) toast('Du tvättar dig! 🫧');
+  washing = wash;
+
   const home = inBase(mover.x, mover.z) === myBase;
   if (home !== inHome) {
     inHome = home;
@@ -764,6 +777,8 @@ function updateLocal(dt, now) {
   }
   camDist += (want - camDist) * Math.min(1, dt * (want < camDist ? 20 : 4));
   camera.position.copy(camTarget).addScaledVector(camDir, -camDist);
+  // När man tittar uppåt hamnar kameran lågt – inte genom marken
+  camera.position.y = Math.max(camera.position.y, groundHeight(map, camera.position.x, camera.position.z, camera.position.y + 1) + 0.3);
   tmp.copy(camTarget).add(camDir);
   camera.lookAt(tmp);
 
@@ -806,6 +821,13 @@ function frame(now) {
       }
     }
     av.setOpacity(op);
+    // I dammen tvättas färgen bort – bubblor tills man är ren
+    if (s && av.spots.count && inPond(av.pos.x, av.pos.z) && av.pos.y < -POND.depth + 0.3) {
+      if (s.me === 0) av.clearSpots();
+      else if (op > 0.3 && Math.random() < dt * 20) {
+        particles.puff(av.pos.x + (Math.random() - 0.5) * 0.8, av.pos.y + 0.3, av.pos.z + (Math.random() - 0.5) * 0.8, 1, Math.random() < 0.5 ? 0xffffff : 0xbfe8ff, 1.1);
+      }
+    }
     const gy = groundHeight(map, av.pos.x, av.pos.z, av.pos.y + 0.1);
     av.update(dt, gy);
     // Dammpuffar när man landar eller springer

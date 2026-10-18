@@ -25,7 +25,9 @@ Appen märker också själv när det finns en ny version och visar en gul knapp.
 - **⬆ Hoppa**, **★ Förmåga**, **🛒 Butik** (syns när du är hemma i din bas)
 - Siktet blir rött när det hjälper dig att sikta på någon.
 - Färgen du väljer är ditt **lag** (röd, blå, gul eller grön) – och din bas. Lagkamrater kan inte färga varandra.
-- Träffar ger ⭐. Blir någon helt färgad blir det **PLASK!** (+3 ⭐) och djuret skickas hem.
+- Blir någon helt färgad blir det **PLASK!** (+1 ⭐) och djuret skickas hem. Första laget till 10 ⭐ vinner rundan.
+- Hoppa i dammen för att tvätta bort färgen från dig.
+- Färgen når inte hur långt som helst – varje vapen har sin räckvidd.
 - I din egen bas är du skyddad, men där kan du inte skjuta.
 - Färgfläckar i världen torkar bort efter ca 30 sekunder.
 - Går man ut (t.ex. **🐾 Byt djur** i menyn) eller tappar nätet behåller man mat, köpta vapen och poäng resten av rundan.

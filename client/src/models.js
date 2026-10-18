@@ -446,6 +446,17 @@ const WEAPON_DEFS = [
     v.box(-1, 3, -2, 0, 3, 2, 0x1d1d1d);
     return v;
   },
+  () => {
+    const v = new Vox();
+    v.box(-2, 1, -6, 1, 4, -2, 0x1fc8c8); // tank
+    v.box(-2, 5, -5, 1, 5, -3, 0xffffff);
+    v.box(-1, 0, -2, 0, 1, 8, 0x1fc8c8); // lång slang
+    v.box(-2, -1, 2, 1, 2, 2, 0xffffff);
+    v.box(-2, -1, 5, 1, 2, 5, 0xffffff);
+    v.box(-1, -1, 9, 0, 2, 9, 0x3b7bff); // munstycke
+    v.box(-1, -2, -1, 0, -1, 0, 0x1fc8c8);
+    return v;
+  },
 ];
 
 const weaponMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });

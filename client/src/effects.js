@@ -19,7 +19,7 @@ export class Projectiles {
   }
   add(s) {
     if (this.list.length >= this.max) this.list.shift();
-    this.list.push({ id: s.id, x: s.o[0], y: s.o[1], z: s.o[2], vx: s.v[0], vy: s.v[1], vz: s.v[2], g: s.g, s: s.s, c: s.c, age: 0 });
+    this.list.push({ id: s.id, x: s.o[0], y: s.o[1], z: s.o[2], vx: s.v[0], vy: s.v[1], vz: s.v[2], g: s.g, s: s.s, c: s.c, age: 0, life: s.l || 4 });
   }
   remove(id) {
     const i = this.list.findIndex((p) => p.id === id);
@@ -37,9 +37,10 @@ export class Projectiles {
       p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
       p.vy -= p.g * dt;
       p.age += dt;
-      if (p.age > 4 || pointHitsWorld(this.map, p.x, p.y, p.z)) {
-        // Servern skickar riktiga fläcken; här bara ett litet stänk
-        if (p.age <= 4 && onWorldHit) onWorldHit(p);
+      if (p.age > p.life || pointHitsWorld(this.map, p.x, p.y, p.z)) {
+        // Servern skickar riktiga fläcken; här bara ett litet stänk. Når skottet inte längre så droppar det bara.
+        if (p.age <= p.life && onWorldHit) onWorldHit(p);
+        else if (this.fizzle) this.fizzle(p);
         continue;
       }
       list[w++] = p;

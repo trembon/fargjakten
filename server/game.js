@@ -1,9 +1,9 @@
 // Spelets regler: rundor, skott, träffar, mat, butik och förmågor.
 import {
   ANIMALS, ANIMAL_IDS, BOT_NAMES, COLORS, FOODS, INTERMISSION_SECONDS, MAX_FOOD, MAX_PLAYERS,
-  PAINT_MAX, SCORE_HIT, SCORE_PLASK, SPAWN_PROTECT, TEAM_COUNT, TICK_RATE, WEAPONS, WIN_SCORE,
+  PAINT_MAX, SCORE_PLASK, SPAWN_PROTECT, TEAM_COUNT, TICK_RATE, WASH_RATE, WEAPONS, WIN_SCORE,
 } from '../shared/constants.js';
-import { MAP_HALF, baseSpawn, boxesNear, createMap, groundHeight, inBase, inPond, pointHitsWorld } from '../shared/map.js';
+import { MAP_HALF, POND, baseSpawn, boxesNear, createMap, groundHeight, inBase, inPond, pointHitsWorld } from '../shared/map.js';
 import { createBot, updateBot } from './bots.js';
 
 const RAINBOW = [0xff3b3b, 0xff8a1f, 0xffd21f, 0x2fd35a, 0x3b7bff, 0xb44dff];
@@ -257,10 +257,10 @@ export class Game {
       const pr = {
         id: this.nextProj++, by: p.id, x: o[0], y: o[1], z: o[2],
         vx: vx * w.speed, vy: vy * w.speed, vz: vz * w.speed,
-        team: p.team, g: w.gravity, dmg: w.damage, splash: w.splash, size: w.size, color, age: 0,
+        team: p.team, g: w.gravity, dmg: w.damage, splash: w.splash, size: w.size, color, age: 0, life: w.range / w.speed,
       };
       this.projectiles.push(pr);
-      shots.push({ id: pr.id, by: p.id, o: [r2(pr.x), r2(pr.y), r2(pr.z)], v: [r2(pr.vx), r2(pr.vy), r2(pr.vz)], g: pr.g, s: pr.size, c: color });
+      shots.push({ id: pr.id, by: p.id, o: [r2(pr.x), r2(pr.y), r2(pr.z)], v: [r2(pr.vx), r2(pr.vy), r2(pr.vz)], g: pr.g, s: pr.size, c: color, l: r2(pr.life) });
     }
     this.broadcast({ t: 'shot', list: shots });
     return true;
@@ -316,7 +316,6 @@ export class Game {
     }
     const roll = this.isActive(target, 'roll', now) ? 0.5 : 1; // röda pandan rullar och tar halva färgen
     target.meter += amount * ANIMALS[target.animal].toughness * roll;
-    if (shooter) shooter.score += SCORE_HIT;
     this.broadcast({ t: 'hit', tg: target.id, by: shooter ? shooter.id : 0, c: color, p: pos });
     if (target.meter >= PAINT_MAX) {
       target.meter = 0;
@@ -400,6 +399,11 @@ export class Game {
       }
     }
 
+    // Den som står i dammen tvättar bort färgen
+    for (const p of this.players.values()) {
+      if (p.meter > 0 && inPond(p.x, p.z) && p.y < -POND.depth + 0.3) p.meter = Math.max(0, p.meter - WASH_RATE * dt);
+    }
+
     // Mat dyker upp och plockas
     this.foodTimer += dt;
     if (this.foodTimer > 1.4 && this.food.size < MAX_FOOD) {
@@ -468,7 +472,7 @@ export class Game {
         }
       }
       pr.age += dt;
-      if (!done && pr.age < 4 && Math.abs(pr.x) < MAP_HALF + 5 && Math.abs(pr.z) < MAP_HALF + 5) keep.push(pr);
+      if (!done && pr.age < pr.life && Math.abs(pr.x) < MAP_HALF + 5 && Math.abs(pr.z) < MAP_HALF + 5) keep.push(pr);
     }
     this.projectiles = keep;
   }
