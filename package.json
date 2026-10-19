@@ -7,7 +7,10 @@
   "scripts": {
     "build": "esbuild client/src/main.js --bundle --minify --sourcemap --target=safari15 --outfile=public/game.js",
     "start": "node server/index.js",
-    "dev": "npm run build && node server/index.js"
+    "dev": "npm run build && node server/index.js",
+    "check": "node scripts/check.js",
+    "pretest": "npm run build",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "three": "^0.169.0",
@@ -15,5 +18,8 @@
   },
   "devDependencies": {
     "esbuild": "^0.24.2"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

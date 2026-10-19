@@ -1,0 +1,8 @@
+# Starta på servern: docker compose up -d
+services:
+  fargjakten:
+    image: ghcr.io/trembon/caspian-spel:latest
+    # build: .   # avkommentera (och ta bort image) för att bygga från koden här i stället
+    ports:
+      - "4321:4321"
+    restart: unless-stopped

@@ -3,9 +3,34 @@
 Ett voxel-färgspel för hela familjen. Välj djur (Capybara, Örn, Apa, Kameleont, Röd panda eller Kanin), jaga varandra med
 färgvapen, samla mat och köp bättre vapen hemma i din bas. Spelas i Safari på iPad/iPhone över husets Wi‑Fi.
 
-## Starta servern (på Windows-datorn)
+Spelet består av en liten Node-server som kör spelets regler (träffar, poäng, botar) och skickar en
+Three.js-klient till webbläsaren. Alla i huset spelar mot samma server – det behövs ingen internetanslutning.
 
+## Starta med Docker (på hemservern)
+
+Varje push till GitHub bygger en ny container och lägger den i GitHub Container Registry
+(`ghcr.io/<github-användare>/<repo>`, se [CI](#ci-github-actions)). På servern:
+
+```bash
+docker run -d --name fargjakten -p 4321:4321 --restart unless-stopped ghcr.io/trembon/caspian-spel:latest
 ```
+
+eller med `docker compose up -d` (se [docker-compose.yml](docker-compose.yml) – byt bildnamnet om repot heter något annat).
+Öppna sedan `http://<serverns-ip>:4321` i Safari på iPad/iPhone.
+
+- Uppdatera till senaste versionen: `docker compose pull && docker compose up -d`
+  (eller `docker pull …` och starta om containern).
+- Annan port utåt: ändra vänstra siffran, t.ex. `-p 8080:4321`.
+- Inställningar via miljövariabler: `-e WIN_SCORE=5` (se nedan).
+- Är paketet privat på GitHub behöver servern först `docker login ghcr.io` med en token som har `read:packages`,
+  eller så gör du paketet publikt under *Packages → Package settings*.
+- Bygga själv från koden: `docker build -t fargjakten .` och `docker run -d -p 4321:4321 fargjakten`.
+
+## Starta lokalt (på Windows-datorn)
+
+Kräver [Node.js](https://nodejs.org) 22 eller senare.
+
+```bash
 npm install
 npm run dev
 ```
@@ -65,3 +90,23 @@ På datorn: WASD = gå, klicka för att låsa musen och titta, klick = skjut, me
 - `node scripts/test-client.js` – snabbtest som startar ett spel (eller går med i det som pågår) och skjuter på en bot i ett annat lag. `MAP=town` väljer Byn.
 - Banorna byggs i `shared/map.js` (`MAPS`, `buildPark`, `buildTown`).
 - Miljövariabeln `WIN_SCORE` ändrar hur många poäng som vinner (t.ex. lågt för att testa rundslut).
+
+### Tester och validering
+
+```bash
+npm run check
+npm test
+```
+
+- `npm run check` – syntaxkollar alla JS-filer och att JSON-filerna går att läsa.
+- `npm test` – bygger klienten och kör testerna i `test/` (Node:s inbyggda testkörare): inställningar, banor,
+  rörelse, samt en riktig server som startas på en slumpad port och spelas mot via WebSocket.
+
+### CI (GitHub Actions)
+
+[.github/workflows/ci.yml](.github/workflows/ci.yml) körs vid varje push och pull request:
+
+1. `npm ci`, `npm run check` och `npm test`.
+2. Bygger Docker-containern ([Dockerfile](Dockerfile)). Vid push (inte PR) läggs den i
+   `ghcr.io/<användare>/<repo>` med taggarna `sha-<commit>`, grenens namn och `latest` (bara från standardgrenen),
+   och sedan startas den och kollas att den svarar.

@@ -84,7 +84,9 @@ setInterval(() => {
 server.listen(PORT, '0.0.0.0', () => {
   console.log('\n🎨  Färgjakten är igång!\n');
   console.log(`   På den här datorn: http://localhost:${PORT}`);
-  for (const list of Object.values(os.networkInterfaces())) {
+  // I Docker är nätverkskortens adresser containerns egna – iPaden ska använda serverns adress
+  if (fs.existsSync('/.dockerenv')) console.log('   I Docker: öppna serverns adress och porten du publicerat (t.ex. -p 4321:4321)');
+  else for (const list of Object.values(os.networkInterfaces())) {
     for (const n of list || []) {
       if (n.family === 'IPv4' && !n.internal) console.log(`   På iPad/iPhone:    http://${n.address}:${PORT}`);
     }
