@@ -1,6 +1,6 @@
 // Rörelse för djur – används av klienten (egen spelare) och servern (botar).
 import { ANIMALS } from './constants.js';
-import { GRAVITY, POND, groundHeight, inPond, resolveXZ } from './map.js';
+import { GRAVITY, PLAYER_H, POND, ceilingHeight, groundHeight, inPond, resolveXZ } from './map.js';
 
 export function createMover(x, y, z, animal) {
   return { x, y, z, vy: 0, onGround: true, jumpsLeft: 0, animal, flyTime: 0, sprint: false, roll: false, superJump: false, blocked: false, inWater: false };
@@ -39,8 +39,11 @@ export function stepMover(m, input, dt, map) {
   }
   m.vy -= g * dt;
   if (a.glide && input.jumpHeld && m.vy < -2) m.vy = -2;
+  const top = m.vy > 0 ? ceilingHeight(map, m.x, m.z, m.y) : Infinity;
   m.y += m.vy * dt;
   if (m.y > 16) { m.y = 16; m.vy = Math.min(m.vy, 0); }
+  // Huvudet slår i taket (t.ex. inne i ett hus)
+  if (m.y + PLAYER_H > top) { m.y = top - PLAYER_H; m.vy = 0; }
 
   const gh = groundHeight(map, m.x, m.z, m.y);
   if (m.y <= gh) {

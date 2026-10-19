@@ -34,12 +34,13 @@
 
     <div id="toast"></div>
     <div id="big-text"></div>
-    <div id="home-hint">🏠 Du är hemma och skyddad. Här kan du handla!</div>
+    <div id="home-hint">🏠 Du är hemma och skyddad. Här kan du handla och byta djur!</div>
 
     <div id="stick"><div id="knob"></div></div>
 
     <div id="buttons">
       <div class="btn" id="btn-shop" data-btn="shop">🛒<span>Butik</span></div>
+      <div class="btn" id="btn-zoo" data-btn="zoo">🐾<span>Djur</span></div>
       <div class="btn" id="btn-ability" data-btn="ability">★<span id="ab-name">Förmåga</span><div id="ab-cd"></div></div>
       <div class="btn" id="btn-jump" data-btn="jump">⬆<span>Hoppa</span></div>
       <div class="btn" id="btn-shoot" data-btn="shoot">🎨<span>Skjut</span></div>
@@ -63,6 +64,18 @@
     </div>
   </div>
 
+  <!-- Byta djur (bara hemma i basen) -->
+  <div id="zoo" class="modal hidden">
+    <div class="card">
+      <div class="card-head">
+        <h2>🐾 Byt djur</h2>
+        <button class="close" id="zoo-close">✕</button>
+      </div>
+      <p class="help">Vapen, mat och poäng följer med till ditt nya djur.</p>
+      <div id="zoo-list"></div>
+    </div>
+  </div>
+
   <!-- Meny under spelet -->
   <div id="menu" class="modal hidden">
     <div class="card">
@@ -75,12 +88,12 @@
         <button class="big-btn alt" id="menu-sound">🔊 Ljud på</button>
       </div>
       <div class="row">
-        <button class="big-btn alt" id="menu-lobby">🐾 Byt djur</button>
+        <button class="big-btn alt" id="menu-lobby">🚪 Lämna spelet</button>
       </div>
       <div class="row">
         <button class="big-btn alt" id="menu-update">🔄 Sök uppdatering</button>
       </div>
-      <p class="help">Tips på datorn: WASD = gå, mus = titta, klick = skjut, mellanslag = hoppa, E = förmåga, B = butik, M = meny.</p>
+      <p class="help">Tips på datorn: WASD = gå, mus = titta, klick = skjut, mellanslag = hoppa, E = förmåga, B = butik, N = byt djur, M = meny.</p>
     </div>
   </div>
 
@@ -90,7 +103,7 @@
       <h2 id="results-title">🏆 Rundan är slut!</h2>
       <div id="results-teams"></div>
       <ol id="results-list"></ol>
-      <p class="help" id="results-next">Ny runda snart…</p>
+      <p class="help" id="results-next">Tillbaka till startsidan snart…</p>
     </div>
   </div>
 
@@ -98,6 +111,7 @@
   <div id="lobby">
     <div class="lobby-inner">
       <h1>🎨 Färgjakten</h1>
+      <div id="lobby-status">Ansluter…</div>
       <label class="field">
         <span>Vad heter du?</span>
         <input id="name" maxlength="14" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Ditt namn">
@@ -111,11 +125,15 @@
         <span>Välj lag</span>
         <div id="colors"></div>
       </div>
-      <div class="field">
+      <div class="field new-only">
+        <span>Välj bana</span>
+        <div id="maps"></div>
+      </div>
+      <div class="field new-only">
         <span>Datorstyrda djur (botar)</span>
         <div class="seg" id="bots"></div>
       </div>
-      <button class="big-btn" id="play">Spela! ▶</button>
+      <button class="big-btn" id="play" disabled>Spela! ▶</button>
       <div id="lobby-msg"></div>
       <button class="link-btn" id="lobby-update">🔄 Sök uppdatering</button>
     </div>

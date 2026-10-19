@@ -29,6 +29,7 @@ export class Controls {
       if (e.code === 'Space') { if (!this.jumpHeld) this.jumpPressed = true; this.jumpHeld = true; e.preventDefault(); }
       if (e.code === 'KeyE' || e.code === 'KeyQ') this.abilityPressed = true;
       if (e.code === 'KeyB' && this.onButton) this.onButton('shop');
+      if (e.code === 'KeyN' && this.onButton) this.onButton('zoo');
       if (e.code === 'KeyF') this.shooting = true;
       this.keys.add(e.code);
     });

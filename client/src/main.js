@@ -1,7 +1,7 @@
 // Färgjakten – klienten. Startsida, nätverk, spelloop och kamera.
 import * as THREE from 'three';
 import { ANIMALS, ANIMAL_IDS, COLORS, FOODS, PAINT_MAX, TICK_RATE, WEAPONS, WIN_SCORE } from '../../shared/constants.js';
-import { POND, createMap, groundHeight, inBase, inPond, pointHitsWorld } from '../../shared/map.js';
+import { MAPS, POND, createMap, groundHeight, inBase, inPond, pointHitsWorld } from '../../shared/map.js';
 import { createMover, startFly, stepMover, superHop } from '../../shared/movement.js';
 import { Controls } from './controls.js';
 import { Particles, Projectiles } from './effects.js';
@@ -27,9 +27,10 @@ for (const ev of ['gesturestart', 'gesturechange', 'dblclick']) document.addEven
 
 // ---------------- Inställningar som sparas ----------------
 
-const prefs = { name: '', animal: 'capybara', color: 'red', bots: 2 };
+const prefs = { name: '', animal: 'capybara', color: 'red', bots: 2, map: 'park' };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('fargjakten') || '{}')); } catch { /* inget sparat */ }
 if (!COLORS.some((c) => c.id === prefs.color)) prefs.color = 'red'; // gamla färger finns inte längre
+if (!MAPS.some((m) => m.id === prefs.map)) prefs.map = 'park';
 const savePrefs = () => { try { localStorage.setItem('fargjakten', JSON.stringify(prefs)); } catch { /* privat läge */ } };
 
 // Sessions-id: samma flik = samma spelare, så köpen finns kvar efter omladdning eller byte av djur.
@@ -50,7 +51,7 @@ if (!sid) {
 
 // ---------------- 3D-scenen ----------------
 
-const map = createMap(7);
+let map = createMap(prefs.map);
 const canvas = $('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 const maxRatio = Math.min(window.devicePixelRatio || 1, 1.5);
@@ -67,13 +68,24 @@ const sun = new THREE.DirectionalLight(0xffffff, 1.8);
 sun.position.set(20, 40, 10);
 scene.add(sun);
 
-const world = buildWorld(scene, map);
+let world = buildWorld(scene, map);
 const splats = new Splats(scene, map);
 const foodView = new FoodView(scene);
 const projectiles = new Projectiles(scene, map);
 const particles = new Particles(scene, 420);
 projectiles.trail = (p) => particles.trail(p.x, p.y, p.z, p.c, p.s * 3);
 projectiles.fizzle = (p) => particles.burst([p.x, p.y, p.z], p.c, 4, 1.5);
+
+// Byt bana: riv den gamla världen och bygg den nya
+function loadMap(id) {
+  if (id === map.id) return;
+  world.dispose();
+  map = createMap(id);
+  world = buildWorld(scene, map);
+  splats.map = map;
+  projectiles.map = map;
+  splats.clear();
+}
 
 function resize() {
   renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -116,9 +128,12 @@ function makeThumbs() {
   return out;
 }
 
+let thumbs = {};
+let lobbyInfo = null; // senaste lobbystatus från servern: finns det ett spel att gå med i?
+
 function buildLobby() {
   $('name').value = prefs.name;
-  const thumbs = makeThumbs();
+  thumbs = makeThumbs();
   const animals = $('animals');
   for (const id of ANIMAL_IDS) {
     const d = document.createElement('div');
@@ -136,6 +151,19 @@ function buildLobby() {
     d.textContent = c.team;
     d.onclick = () => { prefs.color = c.id; refreshLobby(); };
     $('colors').appendChild(d);
+  }
+  for (const m of MAPS) {
+    const d = document.createElement('div');
+    d.className = 'map';
+    d.dataset.id = m.id;
+    d.innerHTML = `${m.emoji} ${m.name}<small>${m.desc}</small>`;
+    d.onclick = () => {
+      prefs.map = m.id;
+      savePrefs();
+      refreshLobby();
+      if (!myId && lobbyInfo?.phase === 'idle') loadMap(m.id); // visa banan bakom startsidan
+    };
+    $('maps').appendChild(d);
   }
   for (const segId of ['bots', 'menu-bots']) {
     for (let n = 0; n <= 4; n++) {
@@ -157,10 +185,28 @@ function buildLobby() {
 }
 
 function refreshLobby() {
-  for (const el of document.querySelectorAll('.animal')) el.classList.toggle('sel', el.dataset.id === prefs.animal);
+  for (const el of document.querySelectorAll('#animals .animal')) el.classList.toggle('sel', el.dataset.id === prefs.animal);
   for (const el of document.querySelectorAll('.color')) el.classList.toggle('sel', el.dataset.id === prefs.color);
+  for (const el of document.querySelectorAll('.map')) el.classList.toggle('sel', el.dataset.id === prefs.map);
   for (const el of document.querySelectorAll('.seg button')) el.classList.toggle('sel', +el.dataset.n === prefs.bots);
   $('animal-desc').textContent = ANIMALS[prefs.animal].desc;
+  // Pågår ett spel går man med i det, annars startar man ett nytt och väljer bana
+  const L = lobbyInfo;
+  const joining = !!L && L.phase !== 'idle';
+  $('lobby').classList.toggle('joining', joining);
+  $('play').textContent = joining ? 'Gå med! ▶' : 'Starta nytt spel! ▶';
+  $('play').disabled = !L || L.phase === 'end';
+  const status = $('lobby-status');
+  if (!L) status.textContent = 'Ansluter till servern… 🔌';
+  else if (L.phase === 'idle') status.textContent = 'Inget spel just nu – välj bana och starta ett! 🎨';
+  else {
+    const title = L.phase === 'end' ? 'Rundan är slut – strax kan ni starta ett nytt spel ⏳' : `Ett spel pågår på ${esc(L.mapName)}!`;
+    const scores = L.ts.map((v, i) => `<span style="background:${css(COLORS[i].hex)}">${v}</span>`).join('');
+    const who = L.players.length
+      ? L.players.map((p) => `<span><i style="background:${css(COLORS[p.tm].hex)}"></i>${esc(p.n)}${p.bot ? ' 🤖' : ''} · ${ANIMALS[p.an]?.name || ''}</span>`).join('')
+      : '<span>Alla har gått ut – spelet stängs snart om ingen går med</span>';
+    status.innerHTML = `${title}<div class="scores">${scores}</div><div class="who">${who}</div>`;
+  }
 }
 
 function start() {
@@ -173,8 +219,15 @@ function start() {
   prefs.name = name;
   savePrefs();
   unlockAudio();
-  $('lobby-msg').textContent = 'Ansluter…';
-  connect();
+  if (!lobbyInfo || !ws || ws.readyState !== 1) {
+    $('lobby-msg').textContent = 'Ansluter… försök igen om en stund';
+    return;
+  }
+  const who = { name, animal: prefs.animal, color: prefs.color, sid };
+  if (lobbyInfo.phase === 'idle') send({ t: 'create', map: prefs.map, bots: prefs.bots, ...who });
+  else if (lobbyInfo.phase === 'play') send({ t: 'join', ...who });
+  else return;
+  $('lobby-msg').textContent = 'Startar…';
 }
 
 // ---------------- Nätverk ----------------
@@ -200,9 +253,9 @@ function send(m) {
   if (ws && ws.readyState === 1) ws.send(JSON.stringify(m));
 }
 
+// Anslutningen öppnas direkt när sidan laddas – servern berättar om det finns ett spel att gå med i.
 function connect() {
   ws = new WebSocket(`ws://${location.host}`);
-  ws.onopen = () => send({ t: 'join', name: prefs.name, animal: prefs.animal, color: prefs.color, sid });
   ws.onmessage = (e) => {
     lastMsgAt = performance.now();
     let m;
@@ -210,13 +263,20 @@ function connect() {
     handlers[m.t]?.(m);
   };
   ws.onclose = () => {
-    if (!myId) {
-      $('lobby-msg').textContent = 'Kunde inte ansluta till spelet. Är servern igång?';
+    if (myId) {
+      reconnect();
       return;
     }
-    reconnect();
+    // På startsidan: försök igen tills servern svarar
+    lobbyInfo = null;
+    refreshLobby();
+    setTimeout(connect, 1000);
   };
 }
+
+// Efter tappad kontakt mitt i spelet laddas sidan om – gå då med igen direkt om spelet fortfarande pågår
+let autoJoin = !!session('fj-autojoin');
+session('fj-autojoin', null);
 
 // Tappad kontakt: ladda om och gå direkt in i spelet igen. Servern känner igen sid och
 // ger tillbaka mat, vapen och poäng.
@@ -255,24 +315,75 @@ let snapGap = 0;
 let lastSnapAt = 0;
 setInterval(() => send({ t: 'ping', c: performance.now() }), 2000);
 
-// En server som startades före en uppdatering känner inte till nya djur och gör om dem till
-// capybara. Visa då det djuret servern använder (så förmågan stämmer) och säg till.
-function useServerAnimal(s) {
-  const wanted = myAnimal;
+// Servern säger vilket djur man är – t.ex. efter ett byte hemma i basen
+function applyAnimal(s) {
   myAnimal = ANIMALS[s.an] ? s.an : 'capybara';
   mover.animal = myAnimal;
+  const ry = me.ry;
   me.dispose(scene);
   me = new Avatar(scene, { ...s, n: prefs.name }, true);
+  me.ry = ry;
+  me.pos.set(mover.x, mover.y, mover.z);
   avatars.set(myId, me);
   $('ab-name').textContent = ANIMALS[myAnimal].abilityName;
-  showBig('Starta om servern 🔄', `Servern känner inte till ${ANIMALS[wanted]?.name || 'djuret'} än – du spelar ${ANIMALS[myAnimal].name} så länge`);
+  abilityUntil = 0;
+  particles.puff(mover.x, mover.y, mover.z, 14);
+  if (!$('zoo').classList.contains('hidden')) renderZoo();
+}
+
+// Tillbaka till startsidan: släpp allt från spelet
+function resetGame() {
+  closeShop();
+  closeZoo();
+  closeMenu();
+  $('results').classList.add('hidden');
+  controls.reset();
+  controls.enabled = false;
+  document.exitPointerLock?.();
+  for (const av of avatars.values()) av.dispose(scene);
+  avatars.clear();
+  info.clear();
+  if (beacon) {
+    scene.remove(beacon);
+    beacon.geometry.dispose();
+    beacon.material.dispose();
+    beacon = null;
+  }
+  foodView.set([]);
+  splats.clear();
+  projectiles.clear();
+  myId = 0;
+  me = null;
+  mover = null;
+  myState = null;
+  abilityUntil = 0;
+  inHome = false;
+  for (const id of ['home-hint', 'btn-shop', 'btn-zoo']) $(id).classList.remove('on');
+  $('btn-shoot').classList.remove('disabled');
+  for (const k in hudCache) delete hudCache[k];
+  $('lobby-msg').textContent = '';
+  $('lobby').classList.remove('hidden');
+  refreshLobby();
 }
 
 const handlers = {
   full() {
     $('lobby-msg').textContent = 'Spelet är fullt just nu.';
   },
+  lobby(m) {
+    lobbyInfo = m;
+    if (myId) return;
+    // Bakom startsidan syns banan som spelas, eller den man valt att starta
+    loadMap(m.phase === 'idle' ? prefs.map : m.map);
+    if ($('lobby-msg').textContent === 'Startar…') $('lobby-msg').textContent = '';
+    refreshLobby();
+    if (autoJoin) {
+      autoJoin = false;
+      if (m.phase === 'play' && prefs.name) start();
+    }
+  },
   welcome(m) {
+    loadMap(m.map);
     myId = m.id;
     myBase = m.base;
     myTeam = m.team;
@@ -292,7 +403,8 @@ const handlers = {
     $('meter-fill').style.background = css(m.color);
     $('lobby').classList.add('hidden');
     controls.enabled = true;
-    if (m.botCount !== prefs.bots) send({ t: 'bots', n: prefs.bots });
+    $('lobby-msg').textContent = '';
+    prefs.bots = m.botCount;
     lastMsgAt = performance.now();
     if (m.restored) showBig('Välkommen tillbaka! 🎉', 'Dina vapen är kvar');
     else showBig(`${COLORS[myTeam].emoji} ${COLORS[myTeam].team}`, `Först till ${winScore} poäng vinner! Samla mat 🍎 och köp vapen hemma`);
@@ -311,7 +423,7 @@ const handlers = {
       seen.add(s.id);
       info.set(s.id, s);
       if (s.id === myId) {
-        if (s.an !== myAnimal) useServerAnimal(s);
+        if (s.an !== myAnimal) applyAnimal(s);
         myState = s;
         me.setInfo(s);
         continue;
@@ -417,6 +529,7 @@ const handlers = {
   round(m) {
     if (m.phase === 'end') {
       closeShop();
+      closeZoo();
       const t = COLORS[m.winner] || COLORS[0];
       const title = $('results-title');
       title.textContent = `🏆 ${t.team} vann!`;
@@ -424,17 +537,14 @@ const handlers = {
       $('results-teams').innerHTML = COLORS.map((c, i) => `<span style="background:${css(c.hex)}">${m.ts[i]}</span>`).join('');
       const list = $('results-list');
       list.innerHTML = m.ranking.map((r) => `<li><i style="background:${css(r.c)}"></i>${esc(r.n)} – ${r.sc} ⭐</li>`).join('');
-      $('results-next').textContent = m.winner === myTeam ? 'Grattis, ditt lag vann! 🎉 Ny runda snart…' : 'Ny runda snart…';
+      $('results-next').textContent = m.winner === myTeam
+        ? 'Grattis, ditt lag vann! 🎉 Tillbaka till startsidan snart…'
+        : 'Tillbaka till startsidan snart…';
       document.exitPointerLock?.();
       $('results').classList.remove('hidden');
       sfx.win();
-    } else {
-      $('results').classList.add('hidden');
-      splats.clear();
-      projectiles.clear();
-      for (const av of avatars.values()) av.clearSpots();
-      foodView.set(m.food);
-      showBig('Ny runda! 🎨', 'Alla börjar om från början');
+    } else if (m.phase === 'over') {
+      resetGame();
     }
   },
   msg(m) {
@@ -560,6 +670,39 @@ function closeShop() {
 }
 $('shop-close').onclick = closeShop;
 
+// Djurbytet fungerar som butiken: bara hemma i basen, men gratis
+function renderZoo() {
+  $('zoo-list').innerHTML = ANIMAL_IDS.map((id) => `<div class="animal${id === myAnimal ? ' sel' : ''}" data-id="${id}">
+    ${thumbs[id] ? `<img src="${thumbs[id]}" alt="">` : ''}${ANIMALS[id].name}<small>★ ${ANIMALS[id].abilityName}</small></div>`).join('');
+}
+$('zoo-list').addEventListener('click', (e) => {
+  const d = e.target.closest('.animal');
+  if (!d) return;
+  if (d.dataset.id !== myAnimal) {
+    send({ t: 'animal', a: d.dataset.id });
+    prefs.animal = d.dataset.id;
+    savePrefs();
+  }
+  closeZoo();
+});
+function openZoo() {
+  if (!inHome) {
+    toast('Gå hem till din bas för att byta djur! 🏠');
+    return;
+  }
+  controls.reset();
+  controls.enabled = false;
+  document.exitPointerLock?.();
+  renderZoo();
+  $('zoo').classList.remove('hidden');
+}
+function closeZoo() {
+  if ($('zoo').classList.contains('hidden')) return;
+  $('zoo').classList.add('hidden');
+  controls.enabled = true;
+}
+$('zoo-close').onclick = closeZoo;
+
 function openMenu() {
   controls.reset();
   controls.enabled = false;
@@ -574,15 +717,17 @@ function closeMenu() {
 }
 $('menu-close').onclick = closeMenu;
 
-// Tangentbord: B/Esc stänger butiken, Esc/M öppnar och stänger menyn
+// Tangentbord: B/Esc stänger butiken, N/Esc djurbytet, Esc/M öppnar och stänger menyn
 window.addEventListener('keydown', (e) => {
   if (!myId || e.target.tagName === 'INPUT') return;
   const shopOpen = !$('shop').classList.contains('hidden');
+  const zooOpen = !$('zoo').classList.contains('hidden');
   const menuOpen = !$('menu').classList.contains('hidden');
   let handled = true;
   if (shopOpen && (e.code === 'KeyB' || e.code === 'Escape')) closeShop();
+  else if (zooOpen && (e.code === 'KeyN' || e.code === 'Escape')) closeZoo();
   else if (menuOpen && (e.code === 'KeyM' || e.code === 'Escape')) closeMenu();
-  else if (!shopOpen && !menuOpen && e.code === 'KeyM') openMenu();
+  else if (!shopOpen && !zooOpen && !menuOpen && e.code === 'KeyM') openMenu();
   else handled = false;
   // Registreras före Controls, så B inte öppnar butiken igen direkt
   if (handled) e.stopImmediatePropagation();
@@ -590,7 +735,10 @@ window.addEventListener('keydown', (e) => {
 $('menu-sound').onclick = () => {
   $('menu-sound').textContent = toggleMute() ? '🔇 Ljud av' : '🔊 Ljud på';
 };
-$('menu-lobby').onclick = () => location.reload();
+$('menu-lobby').onclick = () => {
+  send({ t: 'quit' });
+  resetGame();
+};
 
 // ---------------- Uppdateringar ----------------
 // Hemskärmsappen på iOS kan hålla kvar en gammal sida. Servern skickar med versionen i
@@ -642,6 +790,7 @@ setInterval(autoCheck, 60000);
 const controls = new Controls($('game'), { stick: $('stick'), knob: $('knob') });
 controls.onButton = (name) => {
   if (name === 'shop') openShop();
+  if (name === 'zoo') openZoo();
   if (name === 'menu') openMenu();
 };
 
@@ -761,8 +910,12 @@ function updateLocal(dt, now) {
     inHome = home;
     $('home-hint').classList.toggle('on', home);
     $('btn-shop').classList.toggle('on', home);
+    $('btn-zoo').classList.toggle('on', home);
     $('btn-shoot').classList.toggle('disabled', home);
-    if (!home) closeShop();
+    if (!home) {
+      closeShop();
+      closeZoo();
+    }
   }
 
   // Kamera bakom djuret
@@ -795,6 +948,7 @@ let last = performance.now();
 let frames = 0;
 let fpsTime = last;
 let goodStreak = 0;
+let lobbyAngle = 0;
 let drops = 0; // hur många gånger upplösningen sänkts – efter två slutar vi pendla upp igen
 const showFps = location.search.includes('fps');
 
@@ -804,6 +958,12 @@ function frame(now) {
   last = now;
 
   if (mover) updateLocal(dt, now);
+  else {
+    // Startsidan: kameran glider sakta runt banan
+    lobbyAngle += dt * 0.06;
+    camera.position.set(Math.sin(lobbyAngle) * 34, 18, Math.cos(lobbyAngle) * 34);
+    camera.lookAt(0, 0, 0);
+  }
 
   for (const [id, av] of avatars) {
     if (av !== me) av.interpolate(now);
@@ -879,15 +1039,8 @@ function frame(now) {
   }
 }
 
-// Kamera för startsidan (syns bakom menyn)
-camera.position.set(0, 18, 30);
-camera.lookAt(0, 0, 0);
 buildLobby();
-// Efter tappad kontakt: gå direkt in i spelet igen
-if (session('fj-autojoin')) {
-  session('fj-autojoin', null);
-  if (prefs.name) start();
-}
+connect();
 requestAnimationFrame(frame);
 
 // För felsökning i webbläsarens konsol

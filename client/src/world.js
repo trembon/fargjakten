@@ -1,7 +1,7 @@
 // Ritar kartan, färgfläckar i världen och maten.
 import * as THREE from 'three';
 import { FOODS } from '../../shared/constants.js';
-import { BASES, BASE_HALF, MAP_HALF, POND, hitBox, inBase, inPond, pointHitsWorld } from '../../shared/map.js';
+import { BASES, BASE_HALF, MAP_HALF, POND, boxesNear, hitBox, inBase, inPond, pointHitsWorld } from '../../shared/map.js';
 import { BoxBatch } from './voxel.js';
 import { foodGeometry } from './models.js';
 
@@ -23,7 +23,10 @@ function shade(hex, k) {
 const GRASS = [0x7ccf4a, 0x72c443, 0x79c946, 0x6fbf40];
 const FLOWERS = [0xffffff, 0xffd21f, 0xff6fa8, 0xb44dff, 0xff3b3b];
 
+// Allt läggs i en grupp så att världen kan rivas och byggas om när banan byts.
 export function buildWorld(scene, map) {
+  const group = new THREE.Group();
+  scene.add(group);
   // Mark i rutor
   const ground = new BoxBatch();
   const T = 2;
@@ -65,7 +68,8 @@ export function buildWorld(scene, map) {
   }
   // Grästuvor och blommor
   const rnd = seeded(1234);
-  const freeSpot = (x, z) => inBase(x, z, 0.3) < 0 && !inPond(x, z, 0.3) && !pointHitsWorld(map, x, 0.1, z);
+  const indoors = (x, z) => boxesNear(map, x, z).some((b) => b.kind === 'roof' && x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1);
+  const freeSpot = (x, z) => inBase(x, z, 0.3) < 0 && !inPond(x, z, 0.3) && !pointHitsWorld(map, x, 0.02, z) && !indoors(x, z);
   for (let i = 0; i < 420; i++) {
     const x = (rnd() * 2 - 1) * (MAP_HALF - 0.5), z = (rnd() * 2 - 1) * (MAP_HALF - 0.5);
     if (!freeSpot(x, z)) continue;
@@ -83,7 +87,7 @@ export function buildWorld(scene, map) {
     ground.add(x - 0.07, h, z - 0.07, x + 0.07, h + 0.07, z + 0.07, FLOWERS[Math.floor(rnd() * FLOWERS.length)], { jitter: 0, ao: 0 });
     ground.add(x - 0.03, h + 0.07, z - 0.03, x + 0.03, h + 0.09, z + 0.03, 0xffc21f, { jitter: 0, ao: 0 });
   }
-  scene.add(new THREE.Mesh(ground.build(), worldMaterial));
+  group.add(new THREE.Mesh(ground.build(), worldMaterial));
 
   // Hinder
   const solid = new BoxBatch();
@@ -104,9 +108,9 @@ export function buildWorld(scene, map) {
       for (let t = 0; t <= len; t += 2) {
         const px = long ? b.x0 + t : (b.x0 + b.x1) / 2;
         const pz = long ? (b.z0 + b.z1) / 2 : b.z0 + t;
-        solid.add(px - 0.15, 0, pz - 0.15, px + 0.15, 2.2, pz + 0.15, 0x8a5a2a);
+        solid.add(px - 0.15, 0, pz - 0.15, px + 0.15, b.y1, pz + 0.15, 0x8a5a2a);
       }
-      for (const y of [0.7, 1.6]) {
+      for (const y of fenceRails(b)) {
         if (long) solid.add(b.x0, y, (b.z0 + b.z1) / 2 - 0.08, b.x1, y + 0.25, (b.z0 + b.z1) / 2 + 0.08, b.color);
         else solid.add((b.x0 + b.x1) / 2 - 0.08, y, b.z0, (b.x0 + b.x1) / 2 + 0.08, y + 0.25, b.z1, b.color);
       }
@@ -136,6 +140,34 @@ export function buildWorld(scene, map) {
         else solid.add(b.x0 - 0.01, y, b.z0, b.x1 + 0.01, y + 0.04, b.z1, shade(b.color, 0.85), { jitter: 0, ao: 0 });
       }
       solid.add(b.x0 - 0.06, b.y1, b.z0 - 0.06, b.x1 + 0.06, b.y1 + 0.1, b.z1 + 0.06, shade(b.color, 1.08), { jitter: 0 });
+    } else if (b.kind === 'house') {
+      solid.add(b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, b.color, { jitter: 0.03 });
+      // Mörkare sockel längs golvet
+      if (b.y0 === 0 && b.y1 > 0.3) solid.add(b.x0 - 0.01, 0, b.z0 - 0.01, b.x1 + 0.01, 0.25, b.z1 + 0.01, shade(b.color, 0.75), { jitter: 0, ao: 0 });
+    } else if (b.kind === 'roof') {
+      solid.add(b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, b.color, { jitter: 0.04, skipBottom: false });
+      // Trappstegsgavel ovanpå (bara utseende) och trägolv inne i huset
+      const alongX = b.x1 - b.x0 >= b.z1 - b.z0;
+      const half = (alongX ? b.z1 - b.z0 : b.x1 - b.x0) / 2;
+      for (let k = 1; k <= 3; k++) {
+        const inset = (half * k) / 4, y = b.y1 + (k - 1) * 0.35;
+        const col = k % 2 ? shade(b.color, 0.88) : b.color;
+        if (alongX) solid.add(b.x0 + 0.1, y, b.z0 + inset, b.x1 - 0.1, y + 0.35, b.z1 - inset, col, { jitter: 0.03 });
+        else solid.add(b.x0 + inset, y, b.z0 + 0.1, b.x1 - inset, y + 0.35, b.z1 - 0.1, col, { jitter: 0.03 });
+      }
+      const cx = b.x1 - 1.4, cz = b.z0 + 1.4;
+      solid.add(cx - 0.25, b.y1, cz - 0.25, cx + 0.25, b.y1 + 1.3, cz + 0.25, 0x9a4a3a);
+      solid.add(b.x0 + 0.5, 0, b.z0 + 0.5, b.x1 - 0.5, 0.03, b.z1 - 0.5, 0xb88a55, { jitter: 0.02, ao: 0 });
+    } else if (b.kind === 'plaza') {
+      // Stenplattor i två toner
+      for (let x = b.x0; x < b.x1; x += 1) {
+        for (let z = b.z0; z < b.z1; z += 1) {
+          const tone = (Math.floor(x) + Math.floor(z)) % 2 ? b.color : shade(b.color, 0.92);
+          solid.add(x, b.y0, z, x + 1, b.y1, z + 1, tone, { jitter: 0.02, ao: 0 });
+        }
+      }
+    } else if (b.kind === 'pool') {
+      solid.add(b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, b.color, { jitter: 0.03, ao: 0 });
     } else {
       solid.add(b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, b.color, { jitter: 0.08 });
     }
@@ -165,7 +197,7 @@ export function buildWorld(scene, map) {
       }
     }
   }
-  scene.add(new THREE.Mesh(solid.build(), worldMaterial));
+  group.add(new THREE.Mesh(solid.build(), worldMaterial));
 
   // Vatten
   const water = new THREE.Mesh(
@@ -174,14 +206,14 @@ export function buildWorld(scene, map) {
   );
   water.rotation.x = -Math.PI / 2;
   water.position.set((POND.x0 + POND.x1) / 2, -0.15, (POND.z0 + POND.z1) / 2);
-  scene.add(water);
+  group.add(water);
   // Dammens väggar
   const pw = new BoxBatch();
   pw.add(POND.x0 - 0.01, -POND.depth, POND.z0, POND.x0, 0, POND.z1, 0x9c7b4a);
   pw.add(POND.x1, -POND.depth, POND.z0, POND.x1 + 0.01, 0, POND.z1, 0x9c7b4a);
   pw.add(POND.x0, -POND.depth, POND.z0 - 0.01, POND.x1, 0, POND.z0, 0x9c7b4a);
   pw.add(POND.x0, -POND.depth, POND.z1, POND.x1, 0, POND.z1 + 0.01, 0x9c7b4a);
-  scene.add(new THREE.Mesh(pw.build(), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+  group.add(new THREE.Mesh(pw.build(), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
 
   // Näckrosblad på vattnet
   const lily = new BoxBatch();
@@ -190,7 +222,7 @@ export function buildWorld(scene, map) {
     lily.add(x - s, -0.14, z - s, x + s, -0.11, z + s, 0x3f9e3a, { ao: 0 });
     if (i % 3 === 0) lily.add(x - 0.1, -0.11, z - 0.1, x + 0.1, 0.02, z + 0.1, 0xff9fd0, { jitter: 0, ao: 0 });
   }
-  scene.add(new THREE.Mesh(lily.build(), worldMaterial));
+  group.add(new THREE.Mesh(lily.build(), worldMaterial));
 
   // Himmel: mjuk övergång från ljust vid horisonten till blått uppåt
   const skyGeo = new THREE.SphereGeometry(85, 20, 10);
@@ -204,7 +236,7 @@ export function buildWorld(scene, map) {
   skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   const sky = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
   sky.renderOrder = -10;
-  scene.add(sky);
+  group.add(sky);
 
   // Moln av vita kuber som driver långsamt
   const cloudMat = new THREE.MeshLambertMaterial({ vertexColors: true, fog: false });
@@ -220,7 +252,7 @@ export function buildWorld(scene, map) {
     const c = new THREE.Mesh(cb.build(), cloudMat);
     c.position.set((rnd() * 2 - 1) * 70, 26 + rnd() * 8, (rnd() * 2 - 1) * 60);
     c.userData.speed = 0.6 + rnd() * 0.8;
-    scene.add(c);
+    group.add(c);
     clouds.push(c);
   }
 
@@ -237,6 +269,14 @@ export function buildWorld(scene, map) {
       // Vattnet glittrar lite
       water.material.opacity = 0.58 + Math.sin(t * 1.7) * 0.05;
       water.material.emissive.setRGB(0.02, 0.06 + Math.sin(t * 2.3) * 0.03, 0.12);
+    },
+    dispose() {
+      scene.remove(group);
+      group.traverse((o) => {
+        if (!o.isMesh) return;
+        o.geometry.dispose();
+        if (o.material !== worldMaterial) o.material.dispose();
+      });
     },
   };
 }
@@ -402,6 +442,11 @@ export class Splats {
   }
 }
 
+// Höjden på staketets två ribbor (0.7 och 1.6 för det höga staketet runt kanten)
+function fenceRails(b) {
+  return [b.y1 * 0.32, b.y1 * 0.73];
+}
+
 // Staketet krockar som en hel vägg men ser ut som stolpar och ribbor (se buildWorld).
 // Returnerar ytan på den stolpe eller ribba som träffades, eller null om skottet gick mellan.
 function fenceFace(b, p, axis, sign) {
@@ -416,11 +461,11 @@ function fenceFace(b, p, axis, sign) {
   if (off < 0.15 || off > 1.85) {
     const post = start + Math.round((p[along] - start) / 2) * 2;
     lo[along] = post - 0.15; hi[along] = post + 0.15;
-    lo[1] = 0; hi[1] = 2.2;
+    lo[1] = 0; hi[1] = b.y1;
     lo[thin] = mid - 0.15; hi[thin] = mid + 0.15;
     return { lo, hi };
   }
-  for (const y of [0.7, 1.6]) {
+  for (const y of fenceRails(b)) {
     if (p[1] > y - 0.05 && p[1] < y + 0.3) {
       lo[along] = start; hi[along] = stop;
       lo[1] = y; hi[1] = y + 0.25;

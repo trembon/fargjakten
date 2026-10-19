@@ -18,11 +18,20 @@ Tips: I Safari, tryck Dela → **Lägg till på hemskärmen** så startar spelet
 Efter en ändring: tryck **🔄 Sök uppdatering** på startsidan eller i ☰-menyn så laddas den nya versionen.
 Appen märker också själv när det finns en ny version och visar en gul knapp.
 
+## Starta eller gå med i ett spel
+
+- Pågår ett spel visar startsidan vilken bana det är, vilka som spelar och lagens poäng. Skriv namn, välj djur och lag och tryck **Gå med!**
+- Pågår inget spel väljer du **bana** och antal botar och trycker **Starta nytt spel!**
+  - **Parken 🌳** – kulle i mitten, lådor, träd och stenar.
+  - **Byn 🏠** – hus som man kan gå in i (dörr in, fönster att skjuta genom), en fontän på torget.
+- När ett lag har vunnit visas resultatet en stund, sen går alla tillbaka till startsidan och någon startar nästa spel.
+- Ett spel där alla gått ut stängs efter en minut.
+
 ## Så spelar man
 
 - **Vänster tumme:** dra var som helst på vänstra halvan = gå (joystick)
 - **Höger tumme:** dra på högra halvan = titta runt. Skjutknappen 🎨 kan också dras för att sikta medan du skjuter.
-- **⬆ Hoppa**, **★ Förmåga**, **🛒 Butik** (syns när du är hemma i din bas)
+- **⬆ Hoppa**, **★ Förmåga**, **🛒 Butik** och **🐾 Djur** (syns när du är hemma i din bas – där byter du djur gratis, vapen och mat följer med)
 - Siktet blir rött när det hjälper dig att sikta på någon.
 - Färgen du väljer är ditt **lag** (röd, blå, gul eller grön) – och din bas. Lagkamrater kan inte färga varandra.
 - Blir någon helt färgad blir det **PLASK!** (+1 ⭐) och djuret skickas hem. Första laget till 10 ⭐ vinner rundan.
@@ -30,9 +39,9 @@ Appen märker också själv när det finns en ny version och visar en gul knapp.
 - Färgen når inte hur långt som helst – varje vapen har sin räckvidd.
 - I din egen bas är du skyddad, men där kan du inte skjuta.
 - Färgfläckar i världen torkar bort efter ca 30 sekunder.
-- Går man ut (t.ex. **🐾 Byt djur** i menyn) eller tappar nätet behåller man mat, köpta vapen och poäng resten av rundan.
+- Går man ut (**🚪 Lämna spelet** i menyn) eller tappar nätet behåller man mat, köpta vapen och poäng resten av rundan.
   Tappar iPaden kontakten utan att märka det ansluter spelet själv igen inom några sekunder.
-- Lagets ⭐ räknas ihop. Första laget till **50** vinner rundan, sen börjar alla om.
+- Lagets ⭐ räknas ihop. Första laget till **10** vinner rundan.
 
 | Djur | Special | ★ Förmåga |
 |------|---------|-----------|
@@ -43,7 +52,7 @@ Appen märker också själv när det finns en ny version och visar en gul knapp.
 | Röd panda | – | Rulla: snabb boll som tar halva färgen |
 | Kanin | Hoppar högre | Superhopp |
 
-På datorn: WASD = gå, klicka för att låsa musen och titta, klick = skjut, mellanslag = hoppa, E = förmåga, B = butik (B/Esc stänger), M = meny.
+På datorn: WASD = gå, klicka för att låsa musen och titta, klick = skjut, mellanslag = hoppa, E = förmåga, B = butik (B/Esc stänger), N = byt djur, M = meny.
 
 ## För föräldrar/utvecklare
 
@@ -53,5 +62,6 @@ På datorn: WASD = gå, klicka för att låsa musen och titta, klick = skjut, me
 - `npm run build` bygger `public/game.js` (måste göras efter ändringar i `client/` eller `shared/`).
 - Porten ändras i `shared/constants.js` eller med miljövariabeln `PORT`.
 - Lägg till `?fps` i adressen för att se bildfrekvens, ping och största lucka mellan serveruppdateringar (visar om lagg är grafik eller nätverk). Spelet sänker själv upplösningen om enheten är långsam (t.ex. iPad Air 2).
-- `node scripts/test-client.js` – snabbtest som ansluter och skjuter på en bot i ett annat lag.
+- `node scripts/test-client.js` – snabbtest som startar ett spel (eller går med i det som pågår) och skjuter på en bot i ett annat lag. `MAP=town` väljer Byn.
+- Banorna byggs i `shared/map.js` (`MAPS`, `buildPark`, `buildTown`).
 - Miljövariabeln `WIN_SCORE` ändrar hur många poäng som vinner (t.ex. lågt för att testa rundslut).

@@ -4,13 +4,15 @@ import WebSocket from 'ws';
 const ws = new WebSocket(`ws://localhost:${process.env.PORT || 4321}`);
 let me = null, snap = null, k = 0, roundEnd = null;
 const stats = { hit: 0, splat: 0, plask: 0, shot: 0, food: 0 };
-ws.on('open', () => ws.send(JSON.stringify({ t: 'join', name: 'Testare', animal: 'monkey', color: 'blue' })));
+// Startar ett nytt spel om inget pågår, annars går den med i det som pågår
+ws.on('open', () => ws.send(JSON.stringify({ t: 'create', map: process.env.MAP || 'park', bots: 2, name: 'Testare', animal: 'monkey', color: 'blue' })));
 ws.on('message', (raw) => {
   const m = JSON.parse(raw);
   if (m.t === 'welcome') me = m;
   if (m.t === 'snap') snap = m;
   if (m.t === 'tp') k = m.k;
   if (m.t === 'round' && m.phase === 'end') roundEnd = m;
+  if (m.t === 'round' && m.phase === 'over') console.log('round over – back to the start page');
   if (m.t in stats) stats[m.t]++;
 });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

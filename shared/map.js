@@ -1,4 +1,4 @@
-// Kartan byggs likadant på server och klient (samma frö = samma värld).
+// Kartan byggs likadant på server och klient (samma bana = samma värld).
 
 export const MAP_HALF = 36;
 export const BASE_HALF = 5;
@@ -14,6 +14,16 @@ export const GRAVITY = 24;
 export const PLAYER_R = 0.5;
 export const PLAYER_H = 1.3;
 export const STEP = 0.65;
+
+// Banorna man kan välja när man startar ett spel. Baser, butiker, damm och staket är likadana på alla.
+export const MAPS = [
+  { id: 'park', name: 'Parken', emoji: '🌳', desc: 'Kulle i mitten, lådor, träd och stenar.' },
+  { id: 'town', name: 'Byn', emoji: '🏠', desc: 'Hus att springa in i, fönster att skjuta genom och en fontän.' },
+];
+
+export function mapInfo(id) {
+  return MAPS.find((m) => m.id === id) || MAPS[0];
+}
 
 function rng(seed) {
   return function () {
@@ -39,8 +49,8 @@ export function inPond(x, z, margin = 0) {
 
 const CELL = 4;
 
-export function createMap(seed = 7) {
-  const r = rng(seed);
+export function createMap(id = 'park') {
+  const info = mapInfo(id);
   const boxes = [];
   const decor = []; // bara utseende (lövverk m.m.)
 
@@ -73,6 +83,54 @@ export function createMap(seed = 7) {
     add(sx - 1.2, sz - 0.5, sx + 1.2, sz + 0.5, 0, 1.0, 'shop', 0xd9a066);
   }
 
+  if (info.id === 'town') buildTown(add, free, decor);
+  else buildPark(add, free, decor);
+
+  // Rutnät för snabb kollision
+  const grid = new Map();
+  for (const b of boxes) {
+    for (let cx = Math.floor(b.x0 / CELL); cx <= Math.floor(b.x1 / CELL); cx++) {
+      for (let cz = Math.floor(b.z0 / CELL); cz <= Math.floor(b.z1 / CELL); cz++) {
+        const k = cx * 1000 + cz;
+        if (!grid.has(k)) grid.set(k, []);
+        grid.get(k).push(b);
+      }
+    }
+  }
+
+  return { id: info.id, boxes, decor, grid };
+}
+
+// Lådor (ibland staplade), träd och stenar på lediga platser
+function scatter(r, add, free, decor, crates, trees, rocks) {
+  const H = MAP_HALF;
+  for (let i = 0, tries = 0; i < crates && tries < 2000; tries++) {
+    const x = (r() * 2 - 1) * (H - 3), z = (r() * 2 - 1) * (H - 3);
+    if (!free(x, z, 0.8)) continue;
+    const s = 0.6;
+    add(x - s, z - s, x + s, z + s, 0, 1.2, 'crate', 0xc8893f);
+    if (r() < 0.35) add(x - s, z - s, x + s, z + s, 1.2, 2.4, 'crate', 0xb97a33);
+    i++;
+  }
+  for (let i = 0, tries = 0; i < trees && tries < 2000; tries++) {
+    const x = (r() * 2 - 1) * (H - 3), z = (r() * 2 - 1) * (H - 3);
+    if (!free(x, z, 1.2)) continue;
+    const h = 2.8 + r() * 1.2;
+    add(x - 0.4, z - 0.4, x + 0.4, z + 0.4, 0, h, 'trunk', 0x7a4f2a);
+    const leaf = r() < 0.5 ? 0x3e9e3e : 0x4fb548;
+    decor.push({ x, z, y: h, s: 1.3 + r() * 0.6, color: leaf, kind: 'leaves' });
+    i++;
+  }
+  for (let i = 0, tries = 0; i < rocks && tries < 2000; tries++) {
+    const x = (r() * 2 - 1) * (H - 3), z = (r() * 2 - 1) * (H - 3);
+    const w = 0.8 + r() * 0.8, d = 0.8 + r() * 0.8;
+    if (!free(x, z, Math.max(w, d))) continue;
+    add(x - w, z - d, x + w, z + d, 0, 0.5 + r() * 0.5, 'rock', 0x9a9a9a);
+    i++;
+  }
+}
+
+function buildPark(add, free, decor) {
   // Kulle i mitten med trappsteg
   add(-6, -6, 6, 6, 0, 0.6, 'hill', 0x8fcf5a);
   add(-4.5, -4.5, 4.5, 4.5, 0, 1.2, 'hill', 0x83c450);
@@ -90,47 +148,78 @@ export function createMap(seed = 7) {
     add(x0, z0, x1, z1, 0, 1.6, 'wall', 0xd9c7a3);
   }
 
-  // Lådor, ibland staplade
-  for (let i = 0, tries = 0; i < 34 && tries < 2000; tries++) {
-    const x = (r() * 2 - 1) * (H - 3), z = (r() * 2 - 1) * (H - 3);
-    if (!free(x, z, 0.8)) continue;
-    const s = 0.6;
-    add(x - s, z - s, x + s, z + s, 0, 1.2, 'crate', 0xc8893f);
-    if (r() < 0.35) add(x - s, z - s, x + s, z + s, 1.2, 2.4, 'crate', 0xb97a33);
-    i++;
-  }
-  // Träd
-  for (let i = 0, tries = 0; i < 24 && tries < 2000; tries++) {
-    const x = (r() * 2 - 1) * (H - 3), z = (r() * 2 - 1) * (H - 3);
-    if (!free(x, z, 1.2)) continue;
-    const h = 2.8 + r() * 1.2;
-    add(x - 0.4, z - 0.4, x + 0.4, z + 0.4, 0, h, 'trunk', 0x7a4f2a);
-    const leaf = r() < 0.5 ? 0x3e9e3e : 0x4fb548;
-    decor.push({ x, z, y: h, s: 1.3 + r() * 0.6, color: leaf, kind: 'leaves' });
-    i++;
-  }
-  // Stenar
-  for (let i = 0, tries = 0; i < 14 && tries < 2000; tries++) {
-    const x = (r() * 2 - 1) * (H - 3), z = (r() * 2 - 1) * (H - 3);
-    const w = 0.8 + r() * 0.8, d = 0.8 + r() * 0.8;
-    if (!free(x, z, Math.max(w, d))) continue;
-    add(x - w, z - d, x + w, z + d, 0, 0.5 + r() * 0.5, 'rock', 0x9a9a9a);
-    i++;
-  }
+  scatter(rng(7), add, free, decor, 34, 24, 14);
+}
 
-  // Rutnät för snabb kollision
-  const grid = new Map();
-  for (const b of boxes) {
-    for (let cx = Math.floor(b.x0 / CELL); cx <= Math.floor(b.x1 / CELL); cx++) {
-      for (let cz = Math.floor(b.z0 / CELL); cz <= Math.floor(b.z1 / CELL); cz++) {
-        const k = cx * 1000 + cz;
-        if (!grid.has(k)) grid.set(k, []);
-        grid.get(k).push(b);
-      }
-    }
-  }
+export const HOUSE_H = 2.6; // väggarnas höjd, taket ligger ovanpå
+const WALL_T = 0.3;
+const DOOR = { w: 1.6, y0: 0, y1: 2.0 };
+const WINDOW = { w: 1.2, y0: 0.9, y1: 1.8 };
 
-  return { boxes, decor, grid, seed };
+// En vägg längs x (along='x') eller z, med hål för dörr och fönster. c = hålets mitt längs väggen.
+function wallRun(add, along, a0, a1, t0, t1, holes, color) {
+  const box = (s0, s1, y0, y1) => {
+    if (s1 - s0 < 0.01 || y1 - y0 < 0.01) return;
+    if (along === 'x') add(s0, t0, s1, t1, y0, y1, 'house', color);
+    else add(t0, s0, t1, s1, y0, y1, 'house', color);
+  };
+  let at = a0;
+  for (const h of holes) {
+    const h0 = h.c - h.w / 2, h1 = h.c + h.w / 2;
+    box(at, h0, 0, HOUSE_H);
+    box(h0, h1, 0, h.y0);
+    box(h0, h1, h.y1, HOUSE_H);
+    at = h1;
+  }
+  box(at, a1, 0, HOUSE_H);
+}
+
+// Ett hus med dörr på sidan door ('n','s','w','e') och ett fönster på varje annan sida.
+function house(add, cx, cz, w, d, door, color, roof) {
+  const x0 = cx - w / 2, x1 = cx + w / 2, z0 = cz - d / 2, z1 = cz + d / 2;
+  const hole = (side, mid) => [{ c: mid, ...(side === door ? DOOR : WINDOW) }];
+  wallRun(add, 'x', x0, x1, z0, z0 + WALL_T, hole('n', cx), color);
+  wallRun(add, 'x', x0, x1, z1 - WALL_T, z1, hole('s', cx), color);
+  wallRun(add, 'z', z0 + WALL_T, z1 - WALL_T, x0, x0 + WALL_T, hole('w', cz), color);
+  wallRun(add, 'z', z0 + WALL_T, z1 - WALL_T, x1 - WALL_T, x1, hole('e', cz), color);
+  add(x0 - 0.4, z0 - 0.4, x1 + 0.4, z1 + 0.4, HOUSE_H, HOUSE_H + 0.3, 'roof', roof);
+}
+
+function buildTown(add, free, decor) {
+  // Torg med fontän i mitten
+  add(-7, -7, 7, 7, 0, 0.05, 'plaza', 0xc9c1b0);
+  add(-3, -3, 3, -2.6, 0, 0.7, 'stone', 0xb8b0a0);
+  add(-3, 2.6, 3, 3, 0, 0.7, 'stone', 0xb8b0a0);
+  add(-3, -2.6, -2.6, 2.6, 0, 0.7, 'stone', 0xb8b0a0);
+  add(2.6, -2.6, 3, 2.6, 0, 0.7, 'stone', 0xb8b0a0);
+  add(-2.6, -2.6, 2.6, 2.6, 0, 0.35, 'pool', 0x3fa9f5);
+  add(-0.4, -0.4, 0.4, 0.4, 0, 1.8, 'stone', 0xa8a090);
+  add(-1.1, -1.1, 1.1, 1.1, 1.8, 2.1, 'stone', 0xb8b0a0);
+
+  // Hus runt torget med dörren mot mitten: x, z, bredd, djup, dörr, väggfärg, takfärg
+  const houses = [
+    [-16, 0, 6, 5, 'e', 0xf2d7a6, 0xc0392b],
+    [16, 0, 6, 5, 'w', 0xbfe3f2, 0x8e5a2b],
+    [0, -17, 5, 6, 's', 0xf7c6d9, 0x8e5a2b],
+    [0, 17, 5, 6, 'n', 0xd6f2bf, 0xc0392b],
+    [-17, -15, 6, 5, 'e', 0xfff1b8, 0x8e5a2b],
+    [-17, 15, 6, 5, 'e', 0xe0d0f5, 0xc0392b],
+    [17, 16, 6, 5, 'w', 0xf5d0b5, 0xc0392b],
+    [27, -9, 5, 6, 'w', 0xc8f0e0, 0x8e5a2b],
+  ];
+  for (const [x, z, w, d, door, color, roof] of houses) house(add, x, z, w, d, door, color, roof);
+  // Lådor att gömma sig bakom inne i några hus
+  add(-18.6, -1.6, -17.4, -0.4, 0, 1.2, 'crate', 0xc8893f);
+  add(17.4, 0.4, 18.6, 1.6, 0, 1.2, 'crate', 0xc8893f);
+  add(-1.6, 18.2, -0.4, 19.4, 0, 1.2, 'crate', 0xc8893f);
+
+  // Trädgårdsstaket
+  add(-24, -4.2, -20, -4, 0, 1.2, 'fence', 0xf0f0f0);
+  add(20, 4, 24, 4.2, 0, 1.2, 'fence', 0xf0f0f0);
+  add(-4.2, 23, -4, 27, 0, 1.2, 'fence', 0xf0f0f0);
+  add(4, -27, 4.2, -23, 0, 1.2, 'fence', 0xf0f0f0);
+
+  scatter(rng(11), add, free, decor, 22, 16, 6);
 }
 
 const EMPTY = [];
@@ -150,6 +239,19 @@ export function groundHeight(map, x, z, y, r = PLAYER_R * 0.7) {
     }
   }
   return g;
+}
+
+// Lägsta taket ovanför den som står på höjd y vid (x,z). Infinity om det inte finns något.
+export function ceilingHeight(map, x, z, y, r = PLAYER_R * 0.7) {
+  let c = Infinity;
+  for (let i = -1; i <= 1; i += 2) {
+    for (let j = -1; j <= 1; j += 2) {
+      for (const b of boxesNear(map, x + i * r, z + j * r)) {
+        if (b.y0 > y + STEP && b.y0 < c && x + r > b.x0 && x - r < b.x1 && z + r > b.z0 && z - r < b.z1) c = b.y0;
+      }
+    }
+  }
+  return c;
 }
 
 // Skjuter ut en kropp ur väggar/lådor.

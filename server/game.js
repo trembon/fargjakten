@@ -1,9 +1,12 @@
-// Spelets regler: rundor, skott, träffar, mat, butik och förmågor.
+// Spelets regler: lobby, rundor, skott, träffar, mat, butik och förmågor.
+// Faser: 'idle' (inget spel – någon får starta ett) → 'play' → 'end' (resultat) → 'idle'.
 import {
   ANIMALS, ANIMAL_IDS, BOT_NAMES, COLORS, FOODS, INTERMISSION_SECONDS, MAX_FOOD, MAX_PLAYERS,
   PAINT_MAX, SCORE_PLASK, SPAWN_PROTECT, TEAM_COUNT, TICK_RATE, WASH_RATE, WEAPONS, WIN_SCORE,
 } from '../shared/constants.js';
-import { MAP_HALF, POND, baseSpawn, boxesNear, createMap, groundHeight, inBase, inPond, pointHitsWorld } from '../shared/map.js';
+import {
+  MAP_HALF, POND, baseSpawn, createMap, groundHeight, inBase, inPond, mapInfo, pointHitsWorld,
+} from '../shared/map.js';
 import { createBot, updateBot } from './bots.js';
 
 const RAINBOW = [0xff3b3b, 0xff8a1f, 0xffd21f, 0x2fd35a, 0x3b7bff, 0xb44dff];
@@ -12,7 +15,10 @@ const num = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.m
 
 export class Game {
   constructor() {
-    this.map = createMap(7);
+    this.mapId = 'park';
+    this.map = createMap(this.mapId);
+    // Anslutna som står på startsidan och inte är med i spelet
+    this.lobby = new Set();
     this.players = new Map();
     this.projectiles = [];
     this.food = new Map();
@@ -20,8 +26,10 @@ export class Game {
     this.nextProj = 1;
     this.nextFood = 1;
     this.botCount = 2;
-    this.phase = 'play';
-    this.phaseEnds = 0; // bara pausen mellan rundor har en tid
+    this.phase = 'idle';
+    this.phaseEnds = 0; // bara resultatpausen har en tid
+    this.emptySince = 0;
+    this.lobbyTimer = 0;
     this.winScore = Number(process.env.WIN_SCORE) || WIN_SCORE;
     this.lastTick = Date.now();
     this.foodTimer = 0;
@@ -29,7 +37,6 @@ export class Game {
     this.left = new Map();
     // Poäng från spelare som bytt lag eller inte kom tillbaka räknas fortfarande för laget
     this.teamBank = new Array(TEAM_COUNT).fill(0);
-    for (let i = 0; i < 14; i++) this.spawnFood(false);
     setInterval(() => this.tick(), 1000 / TICK_RATE);
   }
 
@@ -37,27 +44,69 @@ export class Game {
 
   connect(ws) {
     let player = null;
+    this.lobby.add(ws);
+    ws.send(JSON.stringify(this.lobbyState()));
     ws.on('message', (raw) => {
       let msg;
       try { msg = JSON.parse(raw); } catch { return; }
       if (!msg || typeof msg.t !== 'string') return;
       if (msg.t === 'ping') { if (ws.readyState === 1) ws.send(JSON.stringify({ t: 'pong', c: msg.c })); return; }
-      if (msg.t === 'join' && !player) player = this.join(ws, msg);
-      else if (player && player.ws === ws) this.handle(player, msg); // en ersatt anslutning styr inte längre
+      // Gick ut, rundan tog slut eller ersattes av en ny anslutning – då styr den här inte längre
+      if (player && player.ws !== ws) player = null;
+      if (!player && msg.t === 'join') player = this.join(ws, msg);
+      else if (!player && msg.t === 'create') player = this.create(ws, msg);
+      else if (player) this.handle(player, msg);
     });
     ws.on('close', () => {
+      this.lobby.delete(ws);
       if (!player || player.ws !== ws) return;
-      this.leave(player);
+      this.leave(player, false);
     });
   }
 
-  leave(p) {
+  // back = tillbaka till startsidan (anslutningen är kvar)
+  leave(p, back) {
+    const ws = p.ws;
     this.players.delete(p.id);
     p.ws = null;
+    if (back && ws && ws.readyState === 1) this.lobby.add(ws);
     if (p.sid) this.left.set(p.sid, { p, at: Date.now() });
     else this.teamBank[p.team] += p.score;
     this.broadcast({ t: 'msg', text: `${p.name} gick ut ur spelet` });
     this.updateBots();
+    this.sendLobby();
+  }
+
+  lobbyState() {
+    const info = mapInfo(this.mapId);
+    return {
+      t: 'lobby', phase: this.phase, map: this.mapId, mapName: `${info.name} ${info.emoji}`, win: this.winScore,
+      ts: this.phase === 'idle' ? [] : this.teamScores(),
+      players: [...this.players.values()].map((p) => ({ n: p.name, tm: p.team, an: p.animal, bot: p.bot ? 1 : 0, sc: p.score })),
+    };
+  }
+
+  sendLobby() {
+    const s = JSON.stringify(this.lobbyState());
+    for (const ws of this.lobby) if (ws.readyState === 1) ws.send(s);
+  }
+
+  // Starta ett nytt spel på vald bana. Hann någon annan före går man med i deras spel i stället.
+  create(ws, msg) {
+    if (this.phase === 'idle') {
+      this.mapId = mapInfo(msg.map).id;
+      this.map = createMap(this.mapId);
+      this.botCount = Math.max(0, Math.min(4, msg.bots | 0));
+      this.food.clear();
+      this.projectiles = [];
+      this.left.clear();
+      this.teamBank.fill(0);
+      for (let i = 0; i < 14; i++) this.spawnFood(false);
+      this.phase = 'play';
+      this.phaseEnds = 0;
+      this.emptySince = 0;
+    }
+    return this.join(ws, msg);
   }
 
   // Hitta en tidigare spelare med samma sid: antingen en "zombie" som fortfarande är ansluten
@@ -84,6 +133,11 @@ export class Game {
   }
 
   join(ws, msg) {
+    if (this.phase !== 'play') {
+      // Inget spel att gå med i (eller rundan håller på att ta slut) – visa startsidan som den är
+      ws.send(JSON.stringify(this.lobbyState()));
+      return null;
+    }
     const sid = typeof msg.sid === 'string' ? msg.sid.slice(0, 40) : '';
     const old = this.takeOver(sid);
     if (this.humans().length >= MAX_PLAYERS) {
@@ -107,15 +161,17 @@ export class Game {
       restored = old.owned.length > 1;
     }
     this.players.set(p.id, p);
+    this.lobby.delete(ws);
 
     ws.send(JSON.stringify({
-      t: 'welcome', id: p.id, animal: p.animal, color: p.color, base: p.base, team: p.team, botCount: this.botCount, win: this.winScore,
+      t: 'welcome', id: p.id, map: this.mapId, animal: p.animal, color: p.color, base: p.base, team: p.team, botCount: this.botCount, win: this.winScore,
       x: p.x, y: p.y, z: p.z, ry: p.ry,
       food: [...this.food.values()],
       phase: this.phase, time: this.timeLeft(), restored,
     }));
     this.broadcast({ t: 'msg', text: old ? `${p.name} är tillbaka!` : `${p.name} kom in i spelet!` });
     this.updateBots();
+    this.sendLobby();
     return p;
   }
 
@@ -205,6 +261,8 @@ export class Game {
         if (p.owned.includes(msg.w | 0)) p.weapon = msg.w | 0;
         break;
       case 'ab': this.useAbility(p); break;
+      case 'animal': this.changeAnimal(p, msg.a); break;
+      case 'quit': this.leave(p, true); break;
       case 'bots': {
         const n = Math.max(0, Math.min(4, msg.n | 0));
         if (n !== this.botCount) {
@@ -284,6 +342,20 @@ export class Game {
     this.send(p, { t: 'msg', text: `Du köpte ${weapon.name}! 🎉`, big: true });
   }
 
+  // Byta djur går bara hemma i basen, precis som att handla. Vapen, mat och poäng följer med.
+  changeAnimal(p, animal) {
+    if (!ANIMAL_IDS.includes(animal) || animal === p.animal || this.phase !== 'play') return;
+    if (inBase(p.x, p.z) !== p.base) {
+      this.send(p, { t: 'msg', text: 'Gå hem till din bas för att byta djur!' });
+      return;
+    }
+    p.animal = animal;
+    p.abUntil = 0;
+    p.cdUntil = Date.now() + ANIMALS[animal].cooldown * 1000; // ingen gratis förmåga genom att byta
+    this.send(p, { t: 'msg', text: `Du är nu ${ANIMALS[animal].name}! 🐾`, big: true });
+    this.sendLobby();
+  }
+
   useAbility(p) {
     const now = Date.now();
     if (now < p.cdUntil || this.phase !== 'play') return;
@@ -333,16 +405,20 @@ export class Game {
       const x = (Math.random() * 2 - 1) * (MAP_HALF - 2);
       const z = (Math.random() * 2 - 1) * (MAP_HALF - 2);
       if (inBase(x, z, 1) >= 0 || inPond(x, z, 0.5)) continue;
-      let bad = false;
-      for (const b of boxesNear(this.map, x, z)) {
-        if ((b.kind === 'trunk' || b.kind === 'fence') && x > b.x0 - 0.6 && x < b.x1 + 0.6 && z > b.z0 - 0.6 && z < b.z1 + 0.6) bad = true;
+      let bad = false, roofed = false;
+      // Alla lådor, inte bara rutan punkten ligger i – en stam precis i grannrutan räknas också
+      for (const b of this.map.boxes) {
+        const near = x > b.x0 - 0.6 && x < b.x1 + 0.6 && z > b.z0 - 0.6 && z < b.z1 + 0.6;
+        if (near && (b.kind === 'trunk' || b.kind === 'fence' || b.kind === 'house')) bad = true;
+        if (b.kind === 'roof' && x > b.x0 - 0.2 && x < b.x1 + 0.2 && z > b.z0 - 0.2 && z < b.z1 + 0.2) roofed = true;
       }
       if (bad) continue;
       let total = 0;
       for (const f of FOODS) total += f.weight;
       let r = Math.random() * total, kind = FOODS[0].id;
       for (const f of FOODS) { if ((r -= f.weight) < 0) { kind = f.id; break; } }
-      const f = { id: this.nextFood++, k: kind, x: r2(x), y: r2(groundHeight(this.map, x, z, 3, 0.1)), z: r2(z) };
+      // Inne i hus hamnar maten på golvet (eller en låda), inte uppe på taket
+      const f = { id: this.nextFood++, k: kind, x: r2(x), y: r2(groundHeight(this.map, x, z, roofed ? 1.5 : 3, 0.1)), z: r2(z) };
       this.food.set(f.id, f);
       if (announce) this.broadcast({ t: 'food', add: [f], rem: [] });
       return;
@@ -359,21 +435,24 @@ export class Game {
       .sort((a, b) => b.score - a.score)
       .map((p) => ({ n: p.name, sc: p.score, c: p.color, an: p.animal, tm: p.team }));
     this.broadcast({ t: 'round', phase: 'end', winner, ts: this.teamScores(), ranking });
+    this.sendLobby();
   }
 
-  startRound() {
-    this.phase = 'play';
-    this.phaseEnds = 0;
+  // Rundan är slut: alla går tillbaka till startsidan och någon får starta ett nytt spel.
+  closeGame() {
+    this.broadcast({ t: 'round', phase: 'over' });
+    for (const p of this.players.values()) {
+      if (p.ws && p.ws.readyState === 1) this.lobby.add(p.ws);
+      p.ws = null;
+    }
+    this.players.clear();
     this.food.clear();
+    this.projectiles = [];
     this.left.clear();
     this.teamBank.fill(0);
-    for (let i = 0; i < 14; i++) this.spawnFood(false);
-    for (const p of this.players.values()) {
-      p.score = 0; p.food = 0; p.owned = [0]; p.weapon = 0; p.meter = 0;
-      p.abUntil = 0; p.cdUntil = 0; p.protectUntil = 0;
-      this.teleportHome(p);
-    }
-    this.broadcast({ t: 'round', phase: 'start', food: [...this.food.values()] });
+    this.phase = 'idle';
+    this.phaseEnds = 0;
+    this.sendLobby();
   }
 
   // ---------- Spelloopen ----------
@@ -383,11 +462,20 @@ export class Game {
     const dt = Math.min(0.1, (now - this.lastTick) / 1000);
     this.lastTick = now;
 
+    if (this.phase === 'idle') return;
     if (this.phase === 'play') {
       const ts = this.teamScores();
       const best = ts.indexOf(Math.max(...ts));
       if (ts[best] >= this.winScore) this.endRound(best);
-    } else if (this.phase === 'end' && now > this.phaseEnds) this.startRound();
+      // Ett spel där alla gått ut stängs efter en stund (lite tid att hinna ansluta igen)
+      if (this.humans().length) this.emptySince = 0;
+      else if (!this.emptySince) this.emptySince = now;
+      else if (now - this.emptySince > 60 * 1000) { this.closeGame(); return; }
+    } else if (this.phase === 'end' && now > this.phaseEnds) { this.closeGame(); return; }
+
+    // Startsidan visar poängen medan spelet pågår
+    this.lobbyTimer += dt;
+    if (this.lobbyTimer > 1) { this.lobbyTimer = 0; this.sendLobby(); }
 
     for (const p of this.players.values()) if (p.bot) updateBot(this, p, dt, now);
 
