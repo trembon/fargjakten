@@ -545,7 +545,7 @@ export class Game {
         for (const p of this.players.values()) {
           if (p.id === pr.by || p.team === pr.team) continue; // skotten flyger igenom lagkamrater
           const dx = p.x - pr.x, dy = p.y + 0.6 - pr.y, dz = p.z - pr.z;
-          const rr = 0.75 + pr.size;
+          const rr = 0.95 + pr.size; // generöst – det ska vara lätt för barn att träffa
           // Står djuret tätt intill en vägg ska skottet på andra sidan inte räknas
           if (dx * dx + dy * dy + dz * dz < rr * rr && clearLine(this.map, pr.x, pr.y, pr.z, p.x, p.y + 0.6, p.z)) {
             this.impact(pr, p, null);

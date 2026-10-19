@@ -809,7 +809,7 @@ const tmp = new THREE.Vector3();
 // Hitta en fiende nära siktet (hjälp att sikta för små händer)
 function findAimTarget() {
   let best = null;
-  let bestAngle = 0.16;
+  let bestAngle = 0.22;
   for (const [id, av] of avatars) {
     if (id === myId) continue;
     const s = info.get(id);
@@ -837,7 +837,14 @@ function shoot(now, target) {
   const o = [mover.x + fx * 0.3, mover.y + 1.25, mover.z + fz * 0.3];
   let P;
   if (target) {
+    // Sikta dit djuret är när skottet kommer fram – vi ser det lite i efterskott och skottet tar tid
+    const [tvx, tvz] = target.velocity();
+    const lag = (target.interpDelay() + 80) / 1000;
     P = [target.pos.x, target.pos.y + 0.6, target.pos.z];
+    for (let k = 0; k < 2; k++) {
+      const ahead = lag + Math.hypot(P[0] - o[0], P[1] - o[1], P[2] - o[2]) / w.speed;
+      P = [target.pos.x + tvx * ahead, target.pos.y + 0.6, target.pos.z + tvz * ahead];
+    }
   } else {
     P = null;
     const far = camDist + w.range;

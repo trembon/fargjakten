@@ -179,9 +179,27 @@ export class Avatar {
     this.air = !!s.a;
   }
 
+  // Hur långt bakåt i tiden (ms) vi visar andra spelare
+  interpDelay() {
+    return Math.max(100, Math.min(200, this.gapMax + 40));
+  }
+
+  // Ungefärlig fart (m/s) i sidled från de senaste lägena från servern
+  velocity() {
+    const b = this.buffer;
+    const c = b[b.length - 1];
+    if (!c) return [0, 0];
+    let i = b.length - 2;
+    while (i > 0 && c.t - b[i].t < 80) i--;
+    const a = b[i];
+    if (!a || c.t - a.t < 30 || Math.abs(c.x - a.x) + Math.abs(c.z - a.z) > 3) return [0, 0];
+    const s = 1000 / (c.t - a.t);
+    return [(c.x - a.x) * s, (c.z - a.z) * s];
+  }
+
   // Interpolera 100–200 ms bakåt i tiden (mer när nätet är ojämnt) för mjuk rörelse.
   interpolate(now) {
-    const t = now - Math.max(100, Math.min(200, this.gapMax + 40));
+    const t = now - this.interpDelay();
     const b = this.buffer;
     if (b.length === 0) return;
     const lastS = b[b.length - 1];
