@@ -54,6 +54,7 @@ test('man kan starta ett spel med botar via WebSocket', async () => {
   assert.ok(got.lobby, 'fick ingen lobby');
   assert.ok(got.welcome, 'fick inget välkommen');
   assert.equal(got.welcome.map, 'town');
+  assert.ok(got.welcome.animals.includes('skunk'), 'servern ska berätta vilka djur den känner till');
   assert.ok(got.snap, 'fick ingen ögonblicksbild');
   assert.equal(got.snap.ps.filter((p) => p.bot).length, 2);
   assert.ok(got.snap.ps.some((p) => p.id === got.welcome.id && p.n === 'Testare'));

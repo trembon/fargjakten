@@ -410,6 +410,7 @@ const handlers = {
     prefs.bots = m.botCount;
     lastMsgAt = performance.now();
     if (m.mh !== map.hash) showBig('⚠️ Starta om servern', 'Servern kör en äldre version av banan – färgen kan fastna på osynliga väggar.');
+    else if (String(m.animals) !== String(ANIMAL_IDS)) showBig('⚠️ Starta om servern', 'Servern är äldre och känner inte till alla djur – nya djur går inte att välja.');
     else if (m.restored) showBig('Välkommen tillbaka! 🎉', 'Dina vapen är kvar');
     else showBig(`${COLORS[myTeam].emoji} ${COLORS[myTeam].team}`, `Först till ${winScore} poäng vinner! Samla mat 🍎 och köp vapen hemma`);
   },
