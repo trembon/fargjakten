@@ -98,7 +98,14 @@ export function createMap(id = 'park') {
     }
   }
 
-  return { id: info.id, boxes, decor, grid };
+  return { id: info.id, boxes, decor, grid, hash: mapHash(boxes) };
+}
+
+// Fingeravtryck av banan. Servern skickar sitt så att klienten märker om servern kör en äldre bana.
+function mapHash(boxes) {
+  let h = boxes.length;
+  for (const b of boxes) h = (Math.imul(h, 31) + Math.round((b.x0 + b.z1 * 7 + b.y1 * 13) * 100)) | 0;
+  return h;
 }
 
 // Lådor (ibland staplade), träd och stenar på lediga platser
@@ -182,7 +189,23 @@ function house(add, cx, cz, w, d, door, color, roof) {
   wallRun(add, 'x', x0, x1, z1 - WALL_T, z1, hole('s', cx), color);
   wallRun(add, 'z', z0 + WALL_T, z1 - WALL_T, x0, x0 + WALL_T, hole('w', cz), color);
   wallRun(add, 'z', z0 + WALL_T, z1 - WALL_T, x1 - WALL_T, x1, hole('e', cz), color);
-  add(x0 - 0.4, z0 - 0.4, x1 + 0.4, z1 + 0.4, HOUSE_H, HOUSE_H + 0.3, 'roof', roof);
+  const r = add(x0 - 0.4, z0 - 0.4, x1 + 0.4, z1 + 0.4, HOUSE_H, HOUSE_H + 0.3, 'roof', roof);
+  // Trappstegsgavel och skorsten ovanpå taket – man kan gå upp på dem och färgen fastnar på dem
+  const alongX = r.x1 - r.x0 >= r.z1 - r.z0;
+  const half = (alongX ? r.z1 - r.z0 : r.x1 - r.x0) / 2;
+  for (let k = 1; k <= 3; k++) {
+    const inset = (half * k) / 4, y = r.y1 + (k - 1) * 0.35;
+    const col = k % 2 ? darker(roof, 0.88) : roof;
+    if (alongX) add(r.x0 + 0.1, r.z0 + inset, r.x1 - 0.1, r.z1 - inset, y, y + 0.35, 'gable', col);
+    else add(r.x0 + inset, r.z0 + 0.1, r.x1 - inset, r.z1 - 0.1, y, y + 0.35, 'gable', col);
+  }
+  const chx = r.x1 - 1.4, chz = r.z0 + 1.4;
+  add(chx - 0.25, chz - 0.25, chx + 0.25, chz + 0.25, r.y1, r.y1 + 1.3, 'chimney', 0x9a4a3a);
+}
+
+function darker(hex, k) {
+  const c = (v) => Math.round(v * k);
+  return (c((hex >> 16) & 255) << 16) | (c((hex >> 8) & 255) << 8) | c(hex & 255);
 }
 
 function buildTown(add, free, decor) {
@@ -313,6 +336,7 @@ export function pointHitsWorld(map, x, y, z) {
   if (y <= g) return [0, 1, 0];
   for (const o of boxesNear(map, x, z)) {
     if (x > o.x0 && x < o.x1 && z > o.z0 && z < o.z1 && y > o.y0 && y < o.y1) {
+      if (o.kind === 'fence' && !onFence(o, x, y, z)) continue; // mellan ribborna
       const d = [x - o.x0, o.x1 - x, o.y1 - y, z - o.z0, o.z1 - z];
       let m = 0;
       for (let i = 1; i < 5; i++) if (d[i] < d[m]) m = i;
@@ -320,6 +344,21 @@ export function pointHitsWorld(map, x, y, z) {
     }
   }
   return null;
+}
+
+// Staketet krockar som en hel vägg för djuren men ser ut som stolpar (var 2:a meter) och två ribbor.
+export function fenceRails(b) {
+  return [b.y1 * 0.32, b.y1 * 0.73];
+}
+
+// Ligger punkten i en stolpe eller ribba? (staketet är 1 tjockt runt kanten, men ritas i mitten)
+function onFence(b, x, y, z) {
+  const long = b.x1 - b.x0 > b.z1 - b.z0;
+  const p = long ? x : z, start = long ? b.x0 : b.z0;
+  const off = (p - start) % 2;
+  if (off < 0.15 || off > 1.85) return true;
+  for (const r of fenceRails(b)) if (y > r - 0.05 && y < r + 0.3) return true;
+  return false;
 }
 
 // Fri sikt mellan två punkter? Används så att skott inte träffar genom väggar.

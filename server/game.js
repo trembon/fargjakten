@@ -164,7 +164,7 @@ export class Game {
     this.lobby.delete(ws);
 
     ws.send(JSON.stringify({
-      t: 'welcome', id: p.id, map: this.mapId, animal: p.animal, color: p.color, base: p.base, team: p.team, botCount: this.botCount, win: this.winScore,
+      t: 'welcome', id: p.id, map: this.mapId, mh: this.map.hash, animal: p.animal, color: p.color, base: p.base, team: p.team, botCount: this.botCount, win: this.winScore,
       x: p.x, y: p.y, z: p.z, ry: p.ry,
       food: [...this.food.values()],
       phase: this.phase, time: this.timeLeft(), restored,

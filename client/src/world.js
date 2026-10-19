@@ -1,7 +1,7 @@
 // Ritar kartan, färgfläckar i världen och maten.
 import * as THREE from 'three';
 import { FOODS } from '../../shared/constants.js';
-import { BASES, BASE_HALF, MAP_HALF, POND, boxesNear, hitBox, inBase, inPond, pointHitsWorld } from '../../shared/map.js';
+import { BASES, BASE_HALF, MAP_HALF, POND, boxesNear, fenceRails, hitBox, inBase, inPond, pointHitsWorld } from '../../shared/map.js';
 import { BoxBatch } from './voxel.js';
 import { foodGeometry } from './models.js';
 
@@ -148,17 +148,7 @@ export function buildWorld(scene, map) {
       if (b.y0 === 0 && b.y1 > 0.3) solid.add(b.x0 - 0.01, 0, b.z0 - 0.01, b.x1 + 0.01, 0.25, b.z1 + 0.01, shade(b.color, 0.75), { jitter: 0, ao: 0 });
     } else if (b.kind === 'roof') {
       solid.add(b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, b.color, { jitter: 0.04, skipBottom: false });
-      // Trappstegsgavel ovanpå (bara utseende) och trägolv inne i huset
-      const alongX = b.x1 - b.x0 >= b.z1 - b.z0;
-      const half = (alongX ? b.z1 - b.z0 : b.x1 - b.x0) / 2;
-      for (let k = 1; k <= 3; k++) {
-        const inset = (half * k) / 4, y = b.y1 + (k - 1) * 0.35;
-        const col = k % 2 ? shade(b.color, 0.88) : b.color;
-        if (alongX) solid.add(b.x0 + 0.1, y, b.z0 + inset, b.x1 - 0.1, y + 0.35, b.z1 - inset, col, { jitter: 0.03 });
-        else solid.add(b.x0 + inset, y, b.z0 + 0.1, b.x1 - inset, y + 0.35, b.z1 - 0.1, col, { jitter: 0.03 });
-      }
-      const cx = b.x1 - 1.4, cz = b.z0 + 1.4;
-      solid.add(cx - 0.25, b.y1, cz - 0.25, cx + 0.25, b.y1 + 1.3, cz + 0.25, 0x9a4a3a);
+      // Trägolv inne i huset (gavlarna och skorstenen är egna lådor i kartan)
       solid.add(b.x0 + 0.5, 0, b.z0 + 0.5, b.x1 - 0.5, 0.03, b.z1 - 0.5, 0xb88a55, { jitter: 0.02, ao: 0 });
     } else if (b.kind === 'plaza') {
       // Stenplattor i två toner
@@ -190,6 +180,8 @@ export function buildWorld(scene, map) {
     } else if (b.kind === 'hedge') {
       solid.add(b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, b.color, { jitter: 0.12 });
       solid.add(b.x0 + 0.05, b.y1, b.z0 + 0.05, b.x1 - 0.05, b.y1 + 0.08, b.z1 - 0.05, shade(b.color, 1.2), { jitter: 0.1, ao: 0 });
+    } else if (b.kind === 'gable') {
+      solid.add(b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, b.color, { jitter: 0.03 });
     } else if (b.kind === 'pool') {
       solid.add(b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, b.color, { jitter: 0.03, ao: 0 });
     } else {
@@ -464,11 +456,6 @@ export class Splats {
     this.mesh.count = 0;
     this.born.fill(-1);
   }
-}
-
-// Höjden på staketets två ribbor (0.7 och 1.6 för det höga staketet runt kanten)
-function fenceRails(b) {
-  return [b.y1 * 0.32, b.y1 * 0.73];
 }
 
 // Staketet krockar som en hel vägg men ser ut som stolpar och ribbor (se buildWorld).
