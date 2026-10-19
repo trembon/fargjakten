@@ -30,8 +30,10 @@ export function buildWorld(scene, map) {
   // Mark i rutor
   const ground = new BoxBatch();
   const T = 2;
-  for (let x = -MAP_HALF; x < MAP_HALF; x += T) {
-    for (let z = -MAP_HALF; z < MAP_HALF; z += T) {
+  // Gräset går en bit utanför staketet så att staketet står på marken
+  const EDGE = MAP_HALF + 4;
+  for (let x = -EDGE; x < EDGE; x += T) {
+    for (let z = -EDGE; z < EDGE; z += T) {
       const cx = x + T / 2, cz = z + T / 2;
       if (cx > POND.x0 && cx < POND.x1 && cz > POND.z0 && cz < POND.z1) continue;
       const even = ((x + z) / T) % 2 === 0;
@@ -108,7 +110,7 @@ export function buildWorld(scene, map) {
       for (let t = 0; t <= len; t += 2) {
         const px = long ? b.x0 + t : (b.x0 + b.x1) / 2;
         const pz = long ? (b.z0 + b.z1) / 2 : b.z0 + t;
-        solid.add(px - 0.15, 0, pz - 0.15, px + 0.15, b.y1, pz + 0.15, 0x8a5a2a);
+        solid.add(px - 0.15, -0.3, pz - 0.15, px + 0.15, b.y1, pz + 0.15, 0x8a5a2a);
       }
       for (const y of fenceRails(b)) {
         if (long) solid.add(b.x0, y, (b.z0 + b.z1) / 2 - 0.08, b.x1, y + 0.25, (b.z0 + b.z1) / 2 + 0.08, b.color);
@@ -166,6 +168,28 @@ export function buildWorld(scene, map) {
           solid.add(x, b.y0, z, x + 1, b.y1, z + 1, tone, { jitter: 0.02, ao: 0 });
         }
       }
+    } else if (b.kind === 'road') {
+      // Kullersten i två toner med en mörkare kantsten längs sidorna
+      const long = b.x1 - b.x0 > b.z1 - b.z0;
+      const S = 1.2;
+      for (let x = b.x0; x < b.x1 - 0.01; x += S) {
+        for (let z = b.z0; z < b.z1 - 0.01; z += S) {
+          const k = Math.round((x - b.x0) / S) + Math.round((z - b.z0) / S);
+          const tone = k % 2 ? b.color : shade(b.color, 0.9);
+          solid.add(x, b.y0, z, Math.min(x + S, b.x1), b.y1, Math.min(z + S, b.z1), tone, { jitter: 0.03, ao: 0 });
+        }
+      }
+      const kerb = shade(b.color, 0.7);
+      if (long) {
+        solid.add(b.x0, 0, b.z0 - 0.15, b.x1, 0.08, b.z0, kerb, { jitter: 0, ao: 0 });
+        solid.add(b.x0, 0, b.z1, b.x1, 0.08, b.z1 + 0.15, kerb, { jitter: 0, ao: 0 });
+      } else {
+        solid.add(b.x0 - 0.15, 0, b.z0, b.x0, 0.08, b.z1, kerb, { jitter: 0, ao: 0 });
+        solid.add(b.x1, 0, b.z0, b.x1 + 0.15, 0.08, b.z1, kerb, { jitter: 0, ao: 0 });
+      }
+    } else if (b.kind === 'hedge') {
+      solid.add(b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, b.color, { jitter: 0.12 });
+      solid.add(b.x0 + 0.05, b.y1, b.z0 + 0.05, b.x1 - 0.05, b.y1 + 0.08, b.z1 - 0.05, shade(b.color, 1.2), { jitter: 0.1, ao: 0 });
     } else if (b.kind === 'pool') {
       solid.add(b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, b.color, { jitter: 0.03, ao: 0 });
     } else {

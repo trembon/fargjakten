@@ -17,6 +17,7 @@ const files = {
   '/game.js': ['public/game.js', 'text/javascript; charset=utf-8'],
   '/game.js.map': ['public/game.js.map', 'application/json'],
   '/icon.png': ['public/icon.png', 'image/png'],
+  '/favicon.ico': ['public/icon.png', 'image/png'],
   '/manifest.json': ['client/manifest.json', 'application/manifest+json'],
 };
 

@@ -1,7 +1,7 @@
 // Färgjakten – klienten. Startsida, nätverk, spelloop och kamera.
 import * as THREE from 'three';
-import { ANIMALS, ANIMAL_IDS, COLORS, FOODS, PAINT_MAX, TICK_RATE, WEAPONS, WIN_SCORE } from '../../shared/constants.js';
-import { MAPS, POND, createMap, groundHeight, inBase, inPond, pointHitsWorld } from '../../shared/map.js';
+import { ANIMALS, ANIMAL_IDS, COLORS, FOODS, PAINT_MAX, SCORE_PLASK, TICK_RATE, WEAPONS, WIN_SCORE } from '../../shared/constants.js';
+import { MAPS, POND, ceilingHeight, createMap, groundHeight, inBase, inPond, pointHitsWorld } from '../../shared/map.js';
 import { createMover, startFly, stepMover, superHop } from '../../shared/movement.js';
 import { Controls } from './controls.js';
 import { Particles, Projectiles } from './effects.js';
@@ -491,7 +491,7 @@ const handlers = {
       showBig('PLASK! 💦', `${esc(byName)} färgade dig helt! Tillbaka hem…`);
       sfx.plask();
     } else if (m.by === myId) {
-      showBig('PLASK! +3 ⭐', `Du färgade ${esc(tgName)} helt!`);
+      showBig(`PLASK! +${SCORE_PLASK} ⭐`, `Du färgade ${esc(tgName)} helt!`);
       sfx.plask();
     }
   },
@@ -921,17 +921,22 @@ function updateLocal(dt, now) {
   // Kamera bakom djuret
   camDir.set(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
   camTarget.set(mover.x, mover.y + 1.75, mover.z);
+  // Under ett tak (inne i ett hus) sänks siktpunkten så att kameran ryms under taket
+  const roof = ceilingHeight(map, mover.x, mover.z, mover.y);
+  if (camTarget.y > roof - 0.45) camTarget.y = Math.max(mover.y + 0.9, roof - 0.45);
   let want = 4.4;
-  for (let s = 0.6; s <= want; s += 0.3) {
+  for (let s = 0.3; s <= want; s += 0.15) {
     if (pointHitsWorld(map, camTarget.x - camDir.x * s, camTarget.y - camDir.y * s, camTarget.z - camDir.z * s)) {
-      want = Math.max(1.0, s - 0.35);
+      want = Math.max(0.5, s - 0.35);
       break;
     }
   }
   camDist += (want - camDist) * Math.min(1, dt * (want < camDist ? 20 : 4));
   camera.position.copy(camTarget).addScaledVector(camDir, -camDist);
-  // När man tittar uppåt hamnar kameran lågt – inte genom marken
-  camera.position.y = Math.max(camera.position.y, groundHeight(map, camera.position.x, camera.position.z, camera.position.y + 1) + 0.3);
+  // När man tittar uppåt hamnar kameran lågt – inte genom marken. Bara mark i djurets höjd räknas,
+  // annars blir husets tak "mark" och kameran hamnar ovanpå taket.
+  camera.position.y = Math.max(camera.position.y, groundHeight(map, camera.position.x, camera.position.z, mover.y + 0.5) + 0.3);
+  if (roof < Infinity) camera.position.y = Math.min(camera.position.y, roof - 0.2);
   tmp.copy(camTarget).add(camDir);
   camera.lookAt(tmp);
 

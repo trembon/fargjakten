@@ -5,7 +5,7 @@ import {
   PAINT_MAX, SCORE_PLASK, SPAWN_PROTECT, TEAM_COUNT, TICK_RATE, WASH_RATE, WEAPONS, WIN_SCORE,
 } from '../shared/constants.js';
 import {
-  MAP_HALF, POND, baseSpawn, createMap, groundHeight, inBase, inPond, mapInfo, pointHitsWorld,
+  MAP_HALF, POND, baseSpawn, clearLine, createMap, groundHeight, inBase, inPond, mapInfo, pointHitsWorld,
 } from '../shared/map.js';
 import { createBot, updateBot } from './bots.js';
 
@@ -409,7 +409,7 @@ export class Game {
       // Alla lådor, inte bara rutan punkten ligger i – en stam precis i grannrutan räknas också
       for (const b of this.map.boxes) {
         const near = x > b.x0 - 0.6 && x < b.x1 + 0.6 && z > b.z0 - 0.6 && z < b.z1 + 0.6;
-        if (near && (b.kind === 'trunk' || b.kind === 'fence' || b.kind === 'house')) bad = true;
+        if (near && (b.kind === 'trunk' || b.kind === 'fence' || b.kind === 'house' || b.kind === 'hedge')) bad = true;
         if (b.kind === 'roof' && x > b.x0 - 0.2 && x < b.x1 + 0.2 && z > b.z0 - 0.2 && z < b.z1 + 0.2) roofed = true;
       }
       if (bad) continue;
@@ -546,7 +546,8 @@ export class Game {
           if (p.id === pr.by || p.team === pr.team) continue; // skotten flyger igenom lagkamrater
           const dx = p.x - pr.x, dy = p.y + 0.6 - pr.y, dz = p.z - pr.z;
           const rr = 0.75 + pr.size;
-          if (dx * dx + dy * dy + dz * dz < rr * rr) {
+          // Står djuret tätt intill en vägg ska skottet på andra sidan inte räknas
+          if (dx * dx + dy * dy + dz * dz < rr * rr && clearLine(this.map, pr.x, pr.y, pr.z, p.x, p.y + 0.6, p.z)) {
             this.impact(pr, p, null);
             done = true;
             break;
@@ -569,10 +570,13 @@ export class Game {
     const shooter = this.players.get(pr.by);
     const pos = [r2(pr.x), r2(pr.y), r2(pr.z)];
     if (pr.splash > 0) {
+      // Smällen sker strax innanför ytan den träffade – kolla sikten från en punkt strax utanför
+      const n = normal || [0, 0, 0];
+      const sx = pr.x + n[0] * 0.15, sy = pr.y + n[1] * 0.15, sz = pr.z + n[2] * 0.15;
       for (const p of this.players.values()) {
         if (p.id === pr.by || p.team === pr.team) continue;
         const d = Math.hypot(p.x - pr.x, p.y + 0.6 - pr.y, p.z - pr.z);
-        if (d < pr.splash) this.damage(p, shooter, pr.dmg * (1 - (d / pr.splash) * 0.6), pr.color, [r2(p.x), r2(p.y + 0.6), r2(p.z)]);
+        if (d < pr.splash && clearLine(this.map, sx, sy, sz, p.x, p.y + 0.6, p.z)) this.damage(p, shooter, pr.dmg * (1 - (d / pr.splash) * 0.6), pr.color, [r2(p.x), r2(p.y + 0.6), r2(p.z)]);
       }
       this.broadcast({ t: 'splat', id: pr.id, p: pos, n: normal || [0, 1, 0], c: pr.color, s: 2.2 });
       return;

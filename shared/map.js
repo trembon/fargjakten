@@ -18,7 +18,7 @@ export const STEP = 0.65;
 // Banorna man kan välja när man startar ett spel. Baser, butiker, damm och staket är likadana på alla.
 export const MAPS = [
   { id: 'park', name: 'Parken', emoji: '🌳', desc: 'Kulle i mitten, lådor, träd och stenar.' },
-  { id: 'town', name: 'Byn', emoji: '🏠', desc: 'Hus att springa in i, fönster att skjuta genom och en fontän.' },
+  { id: 'town', name: 'Byn', emoji: '🏠', desc: 'Gator, hus att springa in i, fönster att hoppa igenom och en fontän.' },
 ];
 
 export function mapInfo(id) {
@@ -154,7 +154,7 @@ function buildPark(add, free, decor) {
 export const HOUSE_H = 2.6; // väggarnas höjd, taket ligger ovanpå
 const WALL_T = 0.3;
 const DOOR = { w: 1.6, y0: 0, y1: 2.0 };
-const WINDOW = { w: 1.2, y0: 0.9, y1: 1.8 };
+const WINDOW = { w: 1.8, y0: 0.7, y1: 2.25 }; // så stort att man kan hoppa in och ut
 
 // En vägg längs x (along='x') eller z, med hål för dörr och fönster. c = hålets mitt längs väggen.
 function wallRun(add, along, a0, a1, t0, t1, holes, color) {
@@ -196,28 +196,51 @@ function buildTown(add, free, decor) {
   add(-0.4, -0.4, 0.4, 0.4, 0, 1.8, 'stone', 0xa8a090);
   add(-1.1, -1.1, 1.1, 1.1, 1.8, 2.1, 'stone', 0xb8b0a0);
 
-  // Hus runt torget med dörren mot mitten: x, z, bredd, djup, dörr, väggfärg, takfärg
+  // Gator: två huvudgator genom torget och en ringväg som binder ihop baserna
+  const R = 1.2; // halva gatubredden
+  add(-26.8, -R, -7, R, 0, 0.04, 'road', 0xbcae90);
+  add(7, -R, 26.8, R, 0, 0.04, 'road', 0xbcae90);
+  add(-R, -26.8, R, -7, 0, 0.04, 'road', 0xbcae90);
+  add(-R, 7, R, 26.8, 0, 0.04, 'road', 0xbcae90);
+  add(-23, -28 - R, 23, -28 + R, 0, 0.04, 'road', 0xbcae90);
+  add(-23, 28 - R, 23, 28 + R, 0, 0.04, 'road', 0xbcae90);
+  add(-28 - R, -23, -28 + R, 23, 0, 0.04, 'road', 0xbcae90);
+  add(28 - R, -23, 28 + R, 23, 0, 0.04, 'road', 0xbcae90);
+
+  // Hus i rader längs huvudgatorna med dörren mot gatan: x, z, bredd, djup, dörr, väggfärg, takfärg
   const houses = [
-    [-16, 0, 6, 5, 'e', 0xf2d7a6, 0xc0392b],
-    [16, 0, 6, 5, 'w', 0xbfe3f2, 0x8e5a2b],
-    [0, -17, 5, 6, 's', 0xf7c6d9, 0x8e5a2b],
-    [0, 17, 5, 6, 'n', 0xd6f2bf, 0xc0392b],
-    [-17, -15, 6, 5, 'e', 0xfff1b8, 0x8e5a2b],
-    [-17, 15, 6, 5, 'e', 0xe0d0f5, 0xc0392b],
-    [17, 16, 6, 5, 'w', 0xf5d0b5, 0xc0392b],
-    [27, -9, 5, 6, 'w', 0xc8f0e0, 0x8e5a2b],
+    // Västra gatan
+    [-12, -5, 6, 5, 's', 0xf2d7a6, 0xc0392b],
+    [-20, -5, 6, 5, 's', 0xfff1b8, 0x8e5a2b],
+    [-12, 5, 6, 5, 'n', 0xe0d0f5, 0x8e5a2b],
+    [-20, 5, 6, 5, 'n', 0xbfe3f2, 0xc0392b],
+    // Östra gatan (dammen ligger norr om den)
+    [21.5, -5, 5, 5, 's', 0xc8f0e0, 0x8e5a2b],
+    [12, 5, 6, 5, 'n', 0xf5d0b5, 0xc0392b],
+    [20, 5, 6, 5, 'n', 0xf7c6d9, 0x8e5a2b],
+    // Norra gatan
+    [-5, -12, 5, 6, 'e', 0xd6f2bf, 0xc0392b],
+    [-5, -20, 5, 6, 'e', 0xf2d7a6, 0x8e5a2b],
+    [5, -22, 5, 6, 'w', 0xe0d0f5, 0xc0392b],
+    // Södra gatan
+    [-5, 12, 5, 6, 'e', 0xfff1b8, 0xc0392b],
+    [-5, 20, 5, 6, 'e', 0xbfe3f2, 0x8e5a2b],
+    [5, 12, 5, 6, 'w', 0xc8f0e0, 0xc0392b],
+    [5, 20, 5, 6, 'w', 0xf7c6d9, 0x8e5a2b],
   ];
   for (const [x, z, w, d, door, color, roof] of houses) house(add, x, z, w, d, door, color, roof);
-  // Lådor att gömma sig bakom inne i några hus
-  add(-18.6, -1.6, -17.4, -0.4, 0, 1.2, 'crate', 0xc8893f);
-  add(17.4, 0.4, 18.6, 1.6, 0, 1.2, 'crate', 0xc8893f);
-  add(-1.6, 18.2, -0.4, 19.4, 0, 1.2, 'crate', 0xc8893f);
+  // Lådor att gömma sig bakom (och klättra upp till fönstret från) inne i några hus
+  add(-14.4, -7.0, -13.2, -5.8, 0, 1.2, 'crate', 0xc8893f);
+  add(13.2, 5.8, 14.4, 7.0, 0, 1.2, 'crate', 0xc8893f);
+  add(-7.0, 21.2, -5.8, 22.4, 0, 1.2, 'crate', 0xc8893f);
 
-  // Trädgårdsstaket
-  add(-24, -4.2, -20, -4, 0, 1.2, 'fence', 0xf0f0f0);
-  add(20, 4, 24, 4.2, 0, 1.2, 'fence', 0xf0f0f0);
-  add(-4.2, 23, -4, 27, 0, 1.2, 'fence', 0xf0f0f0);
-  add(4, -27, 4.2, -23, 0, 1.2, 'fence', 0xf0f0f0);
+  // Häckar och trädgårdsstaket ute mellan kvarteren
+  add(-22, -13, -14, -12.4, 0, 1.0, 'hedge', 0x3f8f3a);
+  add(-22, 12.4, -14, 13, 0, 1.0, 'hedge', 0x3f8f3a);
+  add(14, 12.4, 22, 13, 0, 1.0, 'hedge', 0x3f8f3a);
+  add(-13, 15, -12.4, 22, 0, 1.0, 'hedge', 0x3f8f3a);
+  add(10, 16, 10.2, 22, 0, 1.2, 'fence', 0xf0f0f0);
+  add(-22, -20.2, -16, -20, 0, 1.2, 'fence', 0xf0f0f0);
 
   scatter(rng(11), add, free, decor, 22, 16, 6);
 }
@@ -297,6 +320,17 @@ export function pointHitsWorld(map, x, y, z) {
     }
   }
   return null;
+}
+
+// Fri sikt mellan två punkter? Används så att skott inte träffar genom väggar.
+export function clearLine(map, ax, ay, az, bx, by, bz) {
+  const d = Math.hypot(bx - ax, by - ay, bz - az);
+  const n = Math.ceil(d / 0.1);
+  for (let i = 1; i < n; i++) {
+    const t = i / n;
+    if (pointHitsWorld(map, ax + (bx - ax) * t, ay + (by - ay) * t, az + (bz - az) * t)) return false;
+  }
+  return true;
 }
 
 // Vilken låda och sida träffades vid (x,y,z) med normalen n? Punkten ligger strax innanför ytan.
