@@ -324,6 +324,8 @@ export class Avatar {
       else if (this.animal === 'eagle') m.tail.rotation.x = Math.sin(t * wag) * 0.08;
       else if (this.animal === 'redpanda') m.tail.rotation.y = Math.sin(t * wag * 0.45) * 0.3;
       else if (this.animal === 'rabbit') m.tail.rotation.z = Math.sin(t * wag * 1.5) * 0.25;
+      else if (this.animal === 'fox') m.tail.rotation.y = Math.sin(t * wag * 0.6) * 0.35;
+      else if (this.animal === 'skunk') m.tail.rotation.z = Math.sin(t * wag * 0.4) * 0.15; // stor svans, vajar sakta
       else m.tail.rotation.z = Math.sin(t * wag) * 0.35;
     }
 

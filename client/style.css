@@ -175,7 +175,7 @@ html, body {
   width: 100%; font-size: 24px; padding: 12px 16px; border-radius: 14px; border: 3px solid #fff; outline: none;
   color: #333; -webkit-user-select: text; user-select: text;
 }
-#animals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+#animals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .animal {
   background: rgba(255,255,255,.75); border-radius: 16px; padding: 6px; text-align: center; color: #333;
   border: 4px solid transparent; cursor: pointer; font-weight: 800; font-size: 15px;
@@ -220,7 +220,7 @@ html, body {
 }
 .map small { display: block; font-size: 13px; font-weight: 700; color: #555; margin-top: 4px; }
 .map.sel { border-color: #ff5fc8; background: #fff; }
-#zoo-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+#zoo-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 #zoo-list .animal { background: #fff; border-color: #eee; }
 #zoo-list .animal.sel { border-color: #2fd35a; }
 #zoo-list .animal small { display: block; font-size: 12px; font-weight: 600; color: #666; }
@@ -238,7 +238,7 @@ html, body {
 @media (max-height: 500px) {
   #buttons { transform: scale(.85); transform-origin: bottom right; }
   #lobby h1 { font-size: 34px; }
-  #animals { grid-template-columns: repeat(6, minmax(0, 100px)); }
+  #animals { grid-template-columns: repeat(8, minmax(0, 90px)); }
 }
 
 #rotate {

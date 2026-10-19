@@ -1,8 +1,8 @@
 // Färgjakten – klienten. Startsida, nätverk, spelloop och kamera.
 import * as THREE from 'three';
-import { ANIMALS, ANIMAL_IDS, COLORS, FOODS, PAINT_MAX, SCORE_PLASK, TICK_RATE, WEAPONS, WIN_SCORE } from '../../shared/constants.js';
+import { ANIMALS, ANIMAL_IDS, COLORS, FOODS, PAINT_MAX, SCORE_PLASK, STINK_RADIUS, TICK_RATE, WEAPONS, WIN_SCORE } from '../../shared/constants.js';
 import { MAPS, POND, ceilingHeight, createMap, groundHeight, inBase, inPond, pointHitsWorld } from '../../shared/map.js';
-import { createMover, startFly, stepMover, superHop } from '../../shared/movement.js';
+import { createMover, inStink, startFly, stepMover, superHop } from '../../shared/movement.js';
 import { Controls } from './controls.js';
 import { Particles, Projectiles } from './effects.js';
 import { createAnimal, createWeapon } from './models.js';
@@ -244,6 +244,8 @@ let phase = 'play';
 let myState = null;
 let myAnimal = 'capybara'; // djuret servern faktiskt gav oss
 let abilityKind = '';
+let clouds = []; // skunkarnas stinkmoln: [[x, y, z, lag], …]
+let stinky = false;
 let abilityUntil = 0;
 let beacon = null;
 const avatars = new Map();
@@ -356,6 +358,7 @@ function resetGame() {
   me = null;
   mover = null;
   myState = null;
+  clouds = [];
   abilityUntil = 0;
   inHome = false;
   for (const id of ['home-hint', 'btn-shop', 'btn-zoo']) $(id).classList.remove('on');
@@ -419,6 +422,7 @@ const handlers = {
     lastSnapAt = now;
     phase = m.phase;
     if (m.win) winScore = m.win;
+    clouds = m.cl || [];
     const seen = new Set();
     for (const s of m.ps) {
       seen.add(s.id);
@@ -520,12 +524,25 @@ const handlers = {
         particles.puff(av.pos.x, av.pos.y, av.pos.z, 10);
       }
     }
+    if (m.kind === 'decoy') {
+      const av = avatars.get(m.id);
+      if (av) particles.puff(av.pos.x, av.pos.y, av.pos.z, 14, 0xd9c7a8, 1.6);
+    }
+    if (m.kind === 'stink' && m.p) {
+      particles.puff(m.p[0], m.p[1], m.p[2], 30, 0x9acd32, 3);
+      particles.puff(m.p[0], m.p[1], m.p[2], 15, 0xd4e157, 2.5);
+    }
     if (m.id !== myId) return;
     sfx.ability();
     if (m.kind === 'fly') startFly(mover);
     if (m.kind === 'superjump') { superHop(mover); sfx.boing(); }
     abilityKind = m.kind;
     abilityUntil = performance.now() + ANIMALS[myAnimal].duration * 1000;
+  },
+  // Ett lockbete blev träffat
+  poof(m) {
+    particles.puff(m.p[0], m.p[1] - 0.6, m.p[2], 18, 0xd9c7a8, 1.8);
+    particles.burst(m.p, 0xffffff, 8, 3);
   },
   round(m) {
     if (m.phase === 'end') {
@@ -617,7 +634,7 @@ function updateHud(m) {
     hudCache.ab = !!s.ab;
     $('btn-ability').classList.toggle('active', !!s.ab);
   }
-  const sorted = [...m.ps].sort((x, y) => (x.tm === myTeam ? -1 : 0) - (y.tm === myTeam ? -1 : 0) || x.tm - y.tm || y.sc - x.sc);
+  const sorted = m.ps.filter((p) => !p.dc).sort((x, y) => (x.tm === myTeam ? -1 : 0) - (y.tm === myTeam ? -1 : 0) || x.tm - y.tm || y.sc - x.sc);
   setHtml('scoreboard', sorted
     .map((p) => `<div class="${p.id === myId ? 'me' : ''}"><i style="background:${css(p.c)}"></i>${esc(p.n)}${p.bot ? ' 🤖' : ''}<b>${p.sc}</b></div>`)
     .join(''));
@@ -890,6 +907,9 @@ function updateLocal(dt, now) {
   mover.sprint = abOn && abilityKind === 'sprint';
   mover.roll = abOn && abilityKind === 'roll';
   mover.superJump = abOn && abilityKind === 'superjump';
+  mover.slow = inStink(clouds, myTeam, mover.x, mover.y, mover.z);
+  if (mover.slow && !stinky) toast('Usch, stinkmoln! 🦨');
+  stinky = mover.slow;
   const steps = dt > 0.025 ? 2 : 1;
   for (let i = 0; i < steps; i++) {
     stepMover(mover, { mx, mz, jump: jump && i === 0, jumpHeld: controls.jumpHeld }, dt / steps, map);
@@ -976,6 +996,14 @@ function frame(now) {
     lobbyAngle += dt * 0.06;
     camera.position.set(Math.sin(lobbyAngle) * 34, 18, Math.cos(lobbyAngle) * 34);
     camera.lookAt(0, 0, 0);
+  }
+
+  // Stinkmolnen pyser grönt så länge de finns
+  for (const c of clouds) {
+    for (let k = Math.floor(dt * 70 + Math.random()); k > 0; k--) {
+      const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * (STINK_RADIUS - 0.2);
+      particles.puff(c[0] + Math.cos(a) * r, c[1] + Math.random() * 1.2, c[2] + Math.sin(a) * r, 1, Math.random() < 0.6 ? 0x9acd32 : 0xd4e157, 2.4);
+    }
   }
 
   for (const [id, av] of avatars) {

@@ -1,7 +1,7 @@
 // Enkla datorstyrda djur. De är med flit lite klantiga så att det är kul för barn.
 import { WEAPONS } from '../shared/constants.js';
 import { BASES, inBase } from '../shared/map.js';
-import { createMover, startFly, stepMover, superHop } from '../shared/movement.js';
+import { createMover, inStink, startFly, stepMover, superHop } from '../shared/movement.js';
 
 export function createBot(p) {
   const bot = {
@@ -34,6 +34,12 @@ function think(game, p, now) {
     if (now < o.protectUntil || game.isActive(o, 'hide', now)) continue;
     const d2 = (o.x - p.x) ** 2 + (o.z - p.z) ** 2;
     if (d2 < best) { best = d2; bot.enemy = o; }
+  }
+  // Botarna går på rävens lockbete precis som barnen
+  for (const d of game.decoys) {
+    if (d.team === p.team) continue;
+    const d2 = (d.mover.x - p.x) ** 2 + (d.mover.z - p.z) ** 2;
+    if (d2 < best) { best = d2; bot.enemy = d.mover; }
   }
 
   // Råd att köpa nästa vapen? Gå hem.
@@ -102,6 +108,7 @@ export function updateBot(game, p, dt, now) {
   m.sprint = game.isActive(p, 'sprint', now);
   m.roll = game.isActive(p, 'roll', now);
   m.superJump = game.isActive(p, 'superjump', now);
+  m.slow = inStink(game.clouds.map((c) => c.c), p.team, m.x, m.y, m.z);
   // Kaninen studsar hela tiden när superhoppet är igång
   if (m.superJump && m.onGround) jump = true;
 
@@ -114,7 +121,7 @@ export function updateBot(game, p, dt, now) {
   p.air = m.onGround ? 0 : 1;
 
   const e = bot.enemy;
-  if (e && game.players.has(e.id)) {
+  if (e && (game.players.has(e.id) || game.decoys.some((d) => d.mover === e))) {
     p.ry = Math.atan2(e.x - p.x, e.z - p.z);
     const w = WEAPONS[p.weapon];
     if (now - p.lastShot > (1000 / w.rate) * 2.2 + Math.random() * 300) {

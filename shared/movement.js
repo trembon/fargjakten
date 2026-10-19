@@ -1,9 +1,9 @@
 // Rörelse för djur – används av klienten (egen spelare) och servern (botar).
-import { ANIMALS } from './constants.js';
+import { ANIMALS, STINK_RADIUS, STINK_SLOW } from './constants.js';
 import { GRAVITY, PLAYER_H, POND, ceilingHeight, groundHeight, inPond, resolveXZ } from './map.js';
 
 export function createMover(x, y, z, animal) {
-  return { x, y, z, vy: 0, onGround: true, jumpsLeft: 0, animal, flyTime: 0, sprint: false, roll: false, superJump: false, blocked: false, inWater: false };
+  return { x, y, z, vy: 0, onGround: true, jumpsLeft: 0, animal, flyTime: 0, sprint: false, roll: false, superJump: false, slow: false, blocked: false, inWater: false };
 }
 
 // input: { mx, mz } önskad riktning i världen (längd ≤ 1), jump: tryckt nu, jumpHeld
@@ -14,6 +14,7 @@ export function stepMover(m, input, dt, map) {
   if (m.inWater) speed *= a.swim;
   if (m.sprint) speed *= 1.7;
   if (m.roll) speed *= 1.6;
+  if (m.slow) speed *= STINK_SLOW; // fast i ett stinkmoln
 
   m.blocked = false;
   m.x += input.mx * speed * dt;
@@ -66,4 +67,15 @@ export function startFly(m) {
   m.vy = 12;
   m.onGround = false;
   m.flyTime = ANIMALS.eagle.duration;
+}
+
+// Står man i ett stinkmoln från ett annat lag? clouds: [[x, y, z, lag], …]
+export function inStink(clouds, team, x, y, z) {
+  if (!clouds) return false;
+  for (const c of clouds) {
+    if (c[3] === team) continue;
+    const dx = x - c[0], dz = z - c[2];
+    if (dx * dx + dz * dz < STINK_RADIUS * STINK_RADIUS && y > c[1] - 1 && y < c[1] + 2.5) return true;
+  }
+  return false;
 }

@@ -1,6 +1,6 @@
 # 🎨 Färgjakten
 
-Ett voxel-färgspel för hela familjen. Välj djur (Capybara, Örn, Apa, Kameleont, Röd panda eller Kanin), jaga varandra med
+Ett voxel-färgspel för hela familjen. Välj djur (Capybara, Örn, Apa, Kameleont, Röd panda, Kanin, Räv eller Skunk), jaga varandra med
 färgvapen, samla mat och köp bättre vapen hemma i din bas. Spelas i Safari på iPad/iPhone över husets Wi‑Fi.
 
 Spelet består av en liten Node-server som kör spelets regler (träffar, poäng, botar) och skickar en
@@ -76,6 +76,8 @@ Appen märker också själv när det finns en ny version och visar en gul knapp.
 | Kameleont | – | Nästan osynlig |
 | Röd panda | – | Rulla: snabb boll som tar halva färgen |
 | Kanin | Hoppar högre | Superhopp |
+| Räv | Snabb | Lockbete: en kopia springer iväg och lurar motståndarna (försvinner om den träffas) |
+| Skunk | – | Stinkmoln: motståndare i molnet blir långsamma |
 
 På datorn: WASD = gå, klicka för att låsa musen och titta, klick = skjut, mellanslag = hoppa, E = förmåga, B = butik (B/Esc stänger), N = byt djur, M = meny.
 

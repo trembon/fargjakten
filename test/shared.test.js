@@ -3,10 +3,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ANIMALS, ANIMAL_IDS, COLORS, TEAM_COUNT, WEAPONS } from '../shared/constants.js';
 import { BASES, MAPS, baseSpawn, createMap, groundHeight, inBase, inPond, mapInfo, POND } from '../shared/map.js';
-import { createMover, stepMover } from '../shared/movement.js';
+import { createMover, inStink, stepMover } from '../shared/movement.js';
 
 test('alla djur har de värden rörelsen behöver', () => {
-  assert.ok(ANIMAL_IDS.length > 0);
+  assert.equal(ANIMAL_IDS.length, 8);
   for (const id of ANIMAL_IDS) {
     const a = ANIMALS[id];
     for (const key of ['name', 'speed', 'jump', 'swim', 'ability']) assert.ok(a[key] !== undefined, `${id} saknar ${key}`);
@@ -69,4 +69,23 @@ test('ett djur går framåt, hoppar och landar igen', () => {
   for (let i = 0; i < 100; i++) stepMover(m, { mx: 0, mz: 0, jump: false, jumpHeld: false }, 0.05, map);
   assert.ok(m.onGround, 'djuret landade inte');
   assert.ok(Number.isFinite(m.x) && Number.isFinite(m.y) && Number.isFinite(m.z));
+});
+
+test('i ett stinkmoln går man långsammare', () => {
+  const map = createMap('park');
+  const walk = (slow) => {
+    const m = createMover(BASES[0].x, 0, BASES[0].z, 'fox');
+    m.slow = slow;
+    for (let i = 0; i < 10; i++) stepMover(m, { mx: 1, mz: 0, jump: false, jumpHeld: false }, 0.05, map);
+    return m.x - BASES[0].x;
+  };
+  assert.ok(walk(true) < walk(false) * 0.75);
+});
+
+test('stinkmolnet gäller bara andra lag och bara nära', () => {
+  const clouds = [[0, 0, 0, 1]];
+  assert.ok(inStink(clouds, 0, 1, 0, 1), 'motståndare nära molnet ska bli långsam');
+  assert.ok(!inStink(clouds, 1, 1, 0, 1), 'skunkens eget lag ska inte bli långsamt');
+  assert.ok(!inStink(clouds, 0, 10, 0, 0), 'långt bort ska inte räknas');
+  assert.ok(!inStink([], 0, 0, 0, 0));
 });

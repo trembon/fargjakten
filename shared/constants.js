@@ -106,7 +106,37 @@ export const ANIMALS = {
     cooldown: 10,
     desc: "Hoppar högt – och jättehögt med superhopp. ★ = Superhopp",
   },
+  fox: {
+    name: "Räv",
+    speed: 7.2,
+    jump: 8.5,
+    toughness: 1.05,
+    doubleJump: false,
+    swim: 0.6,
+    ability: "decoy",
+    abilityName: "Lockbete",
+    duration: 4,
+    cooldown: 11,
+    desc: "Snabb och listig – en kopia springer iväg och lurar de andra. ★ = Lockbete",
+  },
+  skunk: {
+    name: "Skunk",
+    speed: 6.6,
+    jump: 8.5,
+    toughness: 0.95,
+    doubleJump: false,
+    swim: 0.6,
+    ability: "stink",
+    abilityName: "Stinkmoln",
+    duration: 5,
+    cooldown: 12,
+    desc: "Motståndare i stinkmolnet blir långsamma. ★ = Stinkmoln",
+  },
 };
+
+// Skunkens stinkmoln: radie (meter) och hur mycket långsammare motståndarna blir i det
+export const STINK_RADIUS = 3.5;
+export const STINK_SLOW = 0.5;
 
 export const ANIMAL_IDS = Object.keys(ANIMALS);
 

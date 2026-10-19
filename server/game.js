@@ -7,6 +7,7 @@ import {
 import {
   MAP_HALF, POND, baseSpawn, clearLine, createMap, groundHeight, inBase, inPond, mapInfo, pointHitsWorld,
 } from '../shared/map.js';
+import { createMover, stepMover } from '../shared/movement.js';
 import { createBot, updateBot } from './bots.js';
 
 const RAINBOW = [0xff3b3b, 0xff8a1f, 0xffd21f, 0x2fd35a, 0x3b7bff, 0xb44dff];
@@ -22,7 +23,10 @@ export class Game {
     this.players = new Map();
     this.projectiles = [];
     this.food = new Map();
+    this.decoys = []; // rävens lockbeten
+    this.clouds = []; // skunkens stinkmoln
     this.nextId = 1;
+    this.nextDecoy = 1;
     this.nextProj = 1;
     this.nextFood = 1;
     this.botCount = 2;
@@ -99,6 +103,8 @@ export class Game {
       this.botCount = Math.max(0, Math.min(4, msg.bots | 0));
       this.food.clear();
       this.projectiles = [];
+      this.decoys = [];
+      this.clouds = [];
       this.left.clear();
       this.teamBank.fill(0);
       for (let i = 0; i < 14; i++) this.spawnFood(false);
@@ -364,7 +370,36 @@ export class Game {
     p.cdUntil = now + a.cooldown * 1000;
     if (p.bot && a.ability === 'fly') p.bot.startFly = true;
     if (p.bot && a.ability === 'superjump') p.bot.superHop = true;
-    this.broadcast({ t: 'ab', id: p.id, kind: a.ability });
+    const msg = { t: 'ab', id: p.id, kind: a.ability };
+    if (a.ability === 'decoy') {
+      // En kopia av räven springer rakt fram åt det håll räven tittar
+      const mover = createMover(p.x, p.y, p.z, p.animal);
+      this.decoys.push({ id: 100000 + this.nextDecoy++, owner: p.id, team: p.team, ry: p.ry, mover, until: now + a.duration * 1000 });
+    } else if (a.ability === 'stink') {
+      const c = [r2(p.x), r2(p.y), r2(p.z), p.team];
+      this.clouds.push({ c, until: now + a.duration * 1000 });
+      msg.p = c.slice(0, 3);
+    }
+    this.broadcast(msg);
+  }
+
+  // Lockbetet springer rakt fram, hoppar över hinder och svänger om det fastnar
+  updateDecoys(dt, now) {
+    this.decoys = this.decoys.filter((d) => now < d.until && this.players.has(d.owner));
+    for (const d of this.decoys) {
+      const m = d.mover;
+      const jump = m.blocked && m.onGround;
+      if (m.blocked && !m.onGround) d.ry += (Math.random() < 0.5 ? 1 : -1) * 1.2;
+      const input = { mx: Math.sin(d.ry), mz: Math.cos(d.ry), jump: false, jumpHeld: false };
+      for (let i = 0; i < 3; i++) stepMover(m, { ...input, jump: jump && i === 0 }, dt / 3, this.map);
+    }
+    this.clouds = this.clouds.filter((c) => now < c.until);
+  }
+
+  // Lockbetet blev träffat – det försvinner i en rökpuff
+  popDecoy(d) {
+    this.decoys = this.decoys.filter((o) => o !== d);
+    this.broadcast({ t: 'poof', id: d.id, p: [r2(d.mover.x), r2(d.mover.y + 0.6), r2(d.mover.z)] });
   }
 
   isActive(p, kind, now = Date.now()) {
@@ -431,6 +466,8 @@ export class Game {
     this.phase = 'end';
     this.phaseEnds = Date.now() + INTERMISSION_SECONDS * 1000;
     this.projectiles = [];
+    this.decoys = [];
+    this.clouds = [];
     const ranking = [...this.players.values()]
       .sort((a, b) => b.score - a.score)
       .map((p) => ({ n: p.name, sc: p.score, c: p.color, an: p.animal, tm: p.team }));
@@ -448,6 +485,8 @@ export class Game {
     this.players.clear();
     this.food.clear();
     this.projectiles = [];
+    this.decoys = [];
+    this.clouds = [];
     this.left.clear();
     this.teamBank.fill(0);
     this.phase = 'idle';
@@ -478,6 +517,7 @@ export class Game {
     if (this.lobbyTimer > 1) { this.lobbyTimer = 0; this.sendLobby(); }
 
     for (const p of this.players.values()) if (p.bot) updateBot(this, p, dt, now);
+    this.updateDecoys(dt, now);
 
     // Den som inte kommit tillbaka på 10 minuter glöms – poängen stannar hos laget
     for (const [sid, l] of this.left) {
@@ -526,7 +566,18 @@ export class Game {
         pr: now < p.protectUntil ? 1 : 0,
       });
     }
-    const snap = JSON.stringify({ t: 'snap', ps, ts: this.teamScores(), win: this.winScore, time: this.timeLeft(), phase: this.phase });
+    // Lockbeten ser ut precis som räven (samma namn, färg och färgmätare)
+    for (const d of this.decoys) {
+      const o = this.players.get(d.owner);
+      const m = d.mover;
+      ps.push({
+        id: d.id, n: o.name, an: 'fox', c: o.color, b: o.base, tm: o.team, bot: o.bot ? 1 : 0, dc: 1,
+        x: r2(m.x), y: r2(m.y), z: r2(m.z), ry: r2(d.ry), m: 1, a: m.onGround ? 0 : 1,
+        me: Math.round(o.meter), sc: 0, f: 0, w: o.weapon, ow: [], ab: 0, cd: 0, pr: 0,
+      });
+    }
+    const cl = this.clouds.map((c) => c.c);
+    const snap = JSON.stringify({ t: 'snap', ps, cl, ts: this.teamScores(), win: this.winScore, time: this.timeLeft(), phase: this.phase });
     for (const p of this.players.values()) {
       // Hoppa över en klient som inte hinner ta emot – annars köas sekunder av gamla lägen
       if (p.ws && p.ws.readyState === 1 && p.ws.bufferedAmount < 64 * 1024) p.ws.send(snap);
@@ -554,6 +605,18 @@ export class Game {
           }
         }
         if (done) break;
+        for (const d of this.decoys) {
+          if (d.team === pr.team) continue;
+          const m = d.mover;
+          const dx = m.x - pr.x, dy = m.y + 0.6 - pr.y, dz = m.z - pr.z;
+          const rr = 0.95 + pr.size;
+          if (dx * dx + dy * dy + dz * dz < rr * rr && clearLine(this.map, pr.x, pr.y, pr.z, m.x, m.y + 0.6, m.z)) {
+            this.impact(pr, null, null, d);
+            done = true;
+            break;
+          }
+        }
+        if (done) break;
         const n = pointHitsWorld(this.map, pr.x, pr.y, pr.z);
         if (n) {
           this.impact(pr, null, n);
@@ -566,7 +629,7 @@ export class Game {
     this.projectiles = keep;
   }
 
-  impact(pr, target, normal) {
+  impact(pr, target, normal, decoy) {
     const shooter = this.players.get(pr.by);
     const pos = [r2(pr.x), r2(pr.y), r2(pr.z)];
     if (pr.splash > 0) {
@@ -578,10 +641,18 @@ export class Game {
         const d = Math.hypot(p.x - pr.x, p.y + 0.6 - pr.y, p.z - pr.z);
         if (d < pr.splash && clearLine(this.map, sx, sy, sz, p.x, p.y + 0.6, p.z)) this.damage(p, shooter, pr.dmg * (1 - (d / pr.splash) * 0.6), pr.color, [r2(p.x), r2(p.y + 0.6), r2(p.z)]);
       }
+      for (const d of [...this.decoys]) {
+        if (d.team === pr.team) continue;
+        const m = d.mover;
+        if (Math.hypot(m.x - pr.x, m.y + 0.6 - pr.y, m.z - pr.z) < pr.splash) this.popDecoy(d);
+      }
       this.broadcast({ t: 'splat', id: pr.id, p: pos, n: normal || [0, 1, 0], c: pr.color, s: 2.2 });
       return;
     }
-    if (target) {
+    if (decoy) {
+      this.broadcast({ t: 'pend', id: pr.id });
+      this.popDecoy(decoy);
+    } else if (target) {
       this.broadcast({ t: 'pend', id: pr.id });
       this.damage(target, shooter, pr.dmg, pr.color, pos);
     } else {

@@ -327,6 +327,93 @@ const ANIMAL_DEFS = {
       spotBox: [-0.3, 0.3, -0.4, 0.3, 0.85, 0.4],
     };
   },
+  fox() {
+    const O = 0xe8731c, O2 = 0xc75a10, W = 0xfaf6ee, D = 0x2b1a12, B = 0x2f6fd6;
+    const body = new Vox();
+    body.box(-3, 4, -6, 2, 8, 4, O);
+    body.box(-2, 3, -4, 1, 3, 3, W); // vit mage
+    body.box(-2, 5, 5, 1, 8, 5, W); // vitt bröst
+    body.box(-2, 9, -5, 1, 9, 3, O2); // mörkare rygg
+    body.box(-4, 4, -1, 3, 9, -1, B); // rem som håller vapnet
+    body.box(-2, 10, -2, 1, 10, 0, B);
+    const head = new Vox();
+    head.box(-3, 7, 4, 2, 11, 8, O);
+    head.box(-2, 7, 9, 1, 9, 11, O); // spetsig nos
+    head.box(-2, 7, 9, 1, 7, 11, W); // vit haka
+    head.sym(2, 7, 6, 2, 8, 8, W); // vita kinder
+    head.set(-1, 9, 12, BLACK).set(0, 9, 12, BLACK); // nos
+    head.set(-1, 8, 12, D).set(0, 8, 12, D);
+    // Stora spetsiga öron med svarta toppar
+    const ear = (side) => {
+      const v = new Vox();
+      const x0 = side > 0 ? 1 : -3;
+      v.box(x0, 12, 5, x0 + 1, 13, 6, O);
+      v.box(x0, 12, 7, x0 + 1, 12, 7, W); // vit insida
+      v.box(x0, 14, 5, x0 + 1, 14, 6, D);
+      v.set(side > 0 ? x0 + 1 : x0, 15, 6, D);
+      return part(v, [side > 0 ? 2 : -2, 12, 6]);
+    };
+    // Yvig svans med vit spets
+    const tail = new Vox();
+    for (let i = 0; i < 8; i++) {
+      const z = -7 - i, y0 = 5 + Math.floor(i / 3), w = i > 1 && i < 6 ? 2 : 1;
+      tail.box(-w, y0, z, w - 1, y0 + 2, z, i >= 6 ? W : O);
+    }
+    return {
+      body: body.build(S_),
+      head: part(head, [0, 8, 4]),
+      eyes: [sideEye(3, 9, 7, -1), sideEye(3, 9, 7, 1)],
+      ears: [ear(-1), ear(1)],
+      tail: part(tail, [0, 6, -6]),
+      leg: limb(1, 4, D, BLACK),
+      legs: [[-2, 4, 2], [2, 4, 2], [-2, 4, -4], [2, 4, -4]],
+      height: 1.3,
+      hold: { mount: [0, 1.05, -0.15], rot: [0, 0, 0] },
+      spotBox: [-0.3, 0.4, -0.6, 0.3, 0.9, 0.5],
+    };
+  },
+  skunk() {
+    const K = 0x26262e, K2 = 0x3a3a46, W = 0xf6f6f2, P = 0xff9fb8, V = 0x9b5de5;
+    const body = new Vox();
+    body.box(-3, 3, -6, 2, 8, 4, K);
+    body.box(-1, 9, -6, 0, 9, 4, W); // vit rand längs ryggen
+    body.sym(1, 8, -6, 2, 8, 4, K2);
+    body.box(-4, 3, -1, 3, 8, -1, V); // rem som håller vapnet
+    body.box(-3, 9, -1, -2, 9, -1, V).box(1, 9, -1, 2, 9, -1, V);
+    const head = new Vox();
+    head.box(-3, 6, 4, 2, 10, 8, K);
+    head.box(-2, 6, 9, 1, 8, 10, K); // nos
+    head.set(-1, 8, 11, P).set(0, 8, 11, P); // rosa nos
+    head.box(-1, 9, 8, 0, 10, 8, W); // vit rand ner i pannan
+    head.box(-1, 11, 4, 0, 11, 8, W); // och över huvudet
+    const ear = (side) => {
+      const v = new Vox();
+      const x0 = side > 0 ? 1 : -3;
+      v.box(x0, 11, 5, x0 + 1, 12, 6, K);
+      v.set(side > 0 ? x0 + 1 : x0, 11, 7, P);
+      return part(v, [side > 0 ? 2 : -2, 11, 6]);
+    };
+    // Jättestor yvig svans som står rakt upp och böjer sig fram över ryggen, med vit rand
+    const tail = new Vox();
+    tail.box(-2, 5, -9, 1, 9, -7, K);
+    tail.box(-2, 10, -9, 1, 14, -6, K);
+    tail.box(-2, 15, -8, 1, 16, -4, K);
+    tail.box(-1, 6, -9, 0, 14, -9, W);
+    tail.box(-1, 16, -8, 0, 16, -4, W);
+    tail.box(-2, 15, -3, 1, 15, -3, W); // vit tofs längst fram
+    return {
+      body: body.build(S_),
+      head: part(head, [0, 8, 4]),
+      eyes: [sideEye(3, 8, 6, -1), sideEye(3, 8, 6, 1)],
+      ears: [ear(-1), ear(1)],
+      tail: part(tail, [0, 6, -6]),
+      leg: limb(1, 3, K, BLACK),
+      legs: [[-2, 3, 2], [2, 3, 2], [-2, 3, -4], [2, 3, -4]],
+      height: 1.7,
+      hold: { mount: [0, 0.98, -0.1], rot: [0, 0, 0] },
+      spotBox: [-0.3, 0.3, -0.6, 0.3, 0.85, 0.5],
+    };
+  },
 };
 
 export function animalDef(id) {
