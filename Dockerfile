@@ -1,12 +1,12 @@
 # Bygger klienten i ett steg och kör bara servern (utan utvecklingsverktyg) i det färdiga steget.
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:22-alpine
+FROM node:24-alpine
 ENV NODE_ENV=production PORT=4321
 WORKDIR /app
 COPY package.json package-lock.json ./

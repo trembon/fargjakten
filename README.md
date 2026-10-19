@@ -28,7 +28,7 @@ eller med `docker compose up -d` (se [docker-compose.yml](docker-compose.yml) �
 
 ## Starta lokalt (på Windows-datorn)
 
-Kräver [Node.js](https://nodejs.org) 22 eller senare.
+Kräver [Node.js](https://nodejs.org) 24 eller senare.
 
 ```bash
 npm install
