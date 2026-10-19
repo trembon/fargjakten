@@ -406,7 +406,7 @@ const handlers = {
     $('lobby-msg').textContent = '';
     prefs.bots = m.botCount;
     lastMsgAt = performance.now();
-    if (m.mh !== undefined && m.mh !== map.hash) showBig('⚠️ Starta om servern', 'Servern kör en äldre version av banan – färgen kan fastna på osynliga väggar.');
+    if (m.mh !== map.hash) showBig('⚠️ Starta om servern', 'Servern kör en äldre version av banan – färgen kan fastna på osynliga väggar.');
     else if (m.restored) showBig('Välkommen tillbaka! 🎉', 'Dina vapen är kvar');
     else showBig(`${COLORS[myTeam].emoji} ${COLORS[myTeam].team}`, `Först till ${winScore} poäng vinner! Samla mat 🍎 och köp vapen hemma`);
   },
