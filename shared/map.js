@@ -47,6 +47,11 @@ export function inPond(x, z, margin = 0) {
   return x > POND.x0 - margin && x < POND.x1 + margin && z > POND.z0 - margin && z < POND.z1 + margin;
 }
 
+// Nere i dammen tvättar man sig – och kan inte skjuta samtidigt
+export function isWashing(x, y, z) {
+  return inPond(x, z) && y < -POND.depth + 0.3;
+}
+
 const CELL = 4;
 
 export function createMap(id = 'park') {

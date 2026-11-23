@@ -1,6 +1,6 @@
 // Rörelse för djur – används av klienten (egen spelare) och servern (botar).
 import { ANIMALS, STINK_RADIUS, STINK_SLOW } from './constants.js';
-import { GRAVITY, PLAYER_H, POND, ceilingHeight, groundHeight, inPond, resolveXZ } from './map.js';
+import { GRAVITY, PLAYER_H, ceilingHeight, groundHeight, isWashing, resolveXZ } from './map.js';
 
 export function createMover(x, y, z, animal) {
   return { x, y, z, vy: 0, onGround: true, jumpsLeft: 0, animal, flyTime: 0, sprint: false, roll: false, superJump: false, slow: false, blocked: false, inWater: false };
@@ -9,7 +9,7 @@ export function createMover(x, y, z, animal) {
 // input: { mx, mz } önskad riktning i världen (längd ≤ 1), jump: tryckt nu, jumpHeld
 export function stepMover(m, input, dt, map) {
   const a = ANIMALS[m.animal];
-  m.inWater = inPond(m.x, m.z) && m.y < -POND.depth + 0.3;
+  m.inWater = isWashing(m.x, m.y, m.z);
   let speed = a.speed;
   if (m.inWater) speed *= a.swim;
   if (m.sprint) speed *= 1.7;

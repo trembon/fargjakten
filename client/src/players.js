@@ -82,6 +82,8 @@ export class Avatar {
     this.rolling = false;
     this.rollAngle = 0;
     this.earFlop = 0;
+    this.washing = false; // står i dammen och skrubbar sig (sätts av main.js)
+    this.washT = 0;
     this.pos = new THREE.Vector3(info.x, info.y, info.z);
     this.ry = info.ry || 0;
     this.moving = false;
@@ -374,6 +376,36 @@ export class Avatar {
       this.rollAngle += dt * (this.moving ? 14 : 4);
       m.ball.rotation.x = this.rollAngle;
       m.group.rotation.x = 0;
+    }
+
+    // Tvätt i dammen: vapnet läggs undan, djuret skrubbar sig, vickar och skakar av sig vattnet
+    m.mount.visible = !this.washing;
+    const wash = this.washing && !rolling;
+    this.washT = wash ? this.washT + dt : 0;
+    if (wash) {
+      const w = this.washT;
+      const scrub = Math.sin(w * 18);
+      // Apan gnuggar huvudet med båda händerna
+      for (let i = 0; i < m.arms.length; i++) {
+        const side = i === 0 ? -1 : 1;
+        m.arms[i].rotation.x = -2.7 + scrub * side * 0.45;
+        m.arms[i].rotation.z = -side * (0.35 + scrub * side * 0.25);
+      }
+      // Benen sprattlar, vingarna plaskar
+      for (let i = 0; i < legs.length; i++) legs[i].rotation.x = Math.sin(w * 16 + i * 1.7) * 0.6;
+      if (m.wings.length) {
+        const f = -0.3 + Math.sin(w * 20) * 0.9;
+        m.wings[0].rotation.z = -f;
+        m.wings[1].rotation.z = f;
+      }
+      // Vicka från sida till sida med små skutt, och skaka huvudet i korta ryck
+      m.group.rotation.z = Math.sin(w * 7) * 0.2;
+      m.group.position.y += Math.abs(Math.sin(w * 7)) * 0.1;
+      const shake = Math.sin(w * 1.6) > 0.4 ? 1 : 0.15;
+      m.head.rotation.y = Math.sin(w * 26) * 0.35 * shake;
+      if (m.tail) m.tail.rotation.z = Math.sin(w * 14) * 0.6;
+    } else {
+      m.group.rotation.z = 0;
     }
   }
 

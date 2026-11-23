@@ -5,7 +5,7 @@ import {
   PAINT_MAX, SCORE_PLASK, SPAWN_PROTECT, TEAM_COUNT, TICK_RATE, WASH_RATE, WEAPONS, WIN_SCORE,
 } from '../shared/constants.js';
 import {
-  MAP_HALF, POND, baseSpawn, clearLine, createMap, groundHeight, inBase, inPond, mapInfo, pointHitsWorld,
+  MAP_HALF, baseSpawn, clearLine, createMap, groundHeight, inBase, inPond, isWashing, mapInfo, pointHitsWorld,
 } from '../shared/map.js';
 import { createMover, stepMover } from '../shared/movement.js';
 import { createBot, updateBot } from './bots.js';
@@ -302,6 +302,7 @@ export class Game {
     const w = WEAPONS[p.weapon];
     if (now - p.lastShot < (1000 / w.rate) * 0.85) return false;
     if (inBase(p.x, p.z) === p.base) return false; // man skjuter inte hemifrån
+    if (isWashing(p.x, p.y, p.z)) return false; // den som tvättar sig har inget vapen i händerna
     // Skottet ska starta nära djuret
     const dx = o[0] - p.x, dy = o[1] - p.y, dz = o[2] - p.z;
     if (dx * dx + dy * dy + dz * dz > 9) { o = [p.x, p.y + 1.3, p.z]; }
@@ -529,7 +530,7 @@ export class Game {
 
     // Den som står i dammen tvättar bort färgen
     for (const p of this.players.values()) {
-      if (p.meter > 0 && inPond(p.x, p.z) && p.y < -POND.depth + 0.3) p.meter = Math.max(0, p.meter - WASH_RATE * dt);
+      if (p.meter > 0 && isWashing(p.x, p.y, p.z)) p.meter = Math.max(0, p.meter - WASH_RATE * dt);
     }
 
     // Mat dyker upp och plockas
@@ -633,16 +634,19 @@ export class Game {
     const shooter = this.players.get(pr.by);
     const pos = [r2(pr.x), r2(pr.y), r2(pr.z)];
     if (pr.splash > 0) {
+      // En direktträff ger full skada – splashen räknas från träffpunkten som ligger en bit från djurets mitt
+      if (target) this.damage(target, shooter, pr.dmg, pr.color, pos);
+      if (decoy) this.popDecoy(decoy);
       // Smällen sker strax innanför ytan den träffade – kolla sikten från en punkt strax utanför
       const n = normal || [0, 0, 0];
       const sx = pr.x + n[0] * 0.15, sy = pr.y + n[1] * 0.15, sz = pr.z + n[2] * 0.15;
       for (const p of this.players.values()) {
-        if (p.id === pr.by || p.team === pr.team) continue;
+        if (p.id === pr.by || p.team === pr.team || p === target) continue;
         const d = Math.hypot(p.x - pr.x, p.y + 0.6 - pr.y, p.z - pr.z);
         if (d < pr.splash && clearLine(this.map, sx, sy, sz, p.x, p.y + 0.6, p.z)) this.damage(p, shooter, pr.dmg * (1 - (d / pr.splash) * 0.6), pr.color, [r2(p.x), r2(p.y + 0.6), r2(p.z)]);
       }
       for (const d of [...this.decoys]) {
-        if (d.team === pr.team) continue;
+        if (d.team === pr.team || d === decoy) continue;
         const m = d.mover;
         if (Math.hypot(m.x - pr.x, m.y + 0.6 - pr.y, m.z - pr.z) < pr.splash) this.popDecoy(d);
       }

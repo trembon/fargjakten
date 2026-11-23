@@ -60,7 +60,8 @@ Appen märker också själv när det finns en ny version och visar en gul knapp.
 - Siktet blir rött när det hjälper dig att sikta på någon.
 - Färgen du väljer är ditt **lag** (röd, blå, gul eller grön) – och din bas. Lagkamrater kan inte färga varandra.
 - Blir någon helt färgad blir det **PLASK!** (+1 ⭐) och djuret skickas hem. Första laget till 10 ⭐ vinner rundan.
-- Hoppa i dammen för att tvätta bort färgen från dig.
+- Hoppa i dammen för att tvätta bort färgen från dig. Medan du tvättar dig kan du inte skjuta. Bara den tåliga capybaran klarar sig mot vattenpistolen när den tvättar sig.
+- Dyrare vapen färgar snabbare. Regnbågskanonen och Färgbazookan (60 mat var) är lika starka, och Superslangen är starkast.
 - Färgen når inte hur långt som helst – varje vapen har sin räckvidd.
 - I din egen bas är du skyddad, men där kan du inte skjuta.
 - Färgfläckar i världen torkar bort efter ca 30 sekunder.

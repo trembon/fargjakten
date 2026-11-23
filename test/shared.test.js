@@ -1,8 +1,8 @@
 // Enhetstester för det som delas mellan server och klient: inställningar, banor och rörelse.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ANIMALS, ANIMAL_IDS, COLORS, TEAM_COUNT, WEAPONS } from '../shared/constants.js';
-import { BASES, MAPS, baseSpawn, createMap, groundHeight, inBase, inPond, mapInfo, POND } from '../shared/map.js';
+import { ANIMALS, ANIMAL_IDS, COLORS, TEAM_COUNT, WASH_RATE, WEAPONS, weaponDps } from '../shared/constants.js';
+import { BASES, MAPS, baseSpawn, createMap, groundHeight, inBase, inPond, isWashing, mapInfo, POND } from '../shared/map.js';
 import { createMover, inStink, stepMover } from '../shared/movement.js';
 
 test('alla djur har de värden rörelsen behöver', () => {
@@ -19,6 +19,24 @@ test('vapnen har rimliga värden och första vapnet är gratis', () => {
   for (const w of WEAPONS) {
     assert.ok(w.name, 'vapen saknar namn');
     assert.ok(w.price >= 0 && w.rate > 0 && w.damage > 0 && w.range > 0, `${w.name} har konstiga värden`);
+  }
+});
+
+test('dyrare vapen färgar snabbare, och lika dyra lika snabbt', () => {
+  const byPrice = [...WEAPONS].sort((a, b) => a.price - b.price);
+  for (let i = 1; i < byPrice.length; i++) {
+    const a = byPrice[i - 1], b = byPrice[i];
+    if (a.price === b.price) assert.ok(Math.abs(weaponDps(a) - weaponDps(b)) < 0.01, `${a.name} och ${b.name} ska vara lika starka`);
+    else assert.ok(weaponDps(b) > weaponDps(a), `${b.name} ska färga snabbare än ${a.name}`);
+  }
+});
+
+test('sämsta vapnet hinner färga den som tvättar sig – utom tåliga capybaran', () => {
+  const worst = Math.min(...WEAPONS.map(weaponDps));
+  for (const id of ANIMAL_IDS) {
+    const dps = worst * ANIMALS[id].toughness;
+    if (id === 'capybara') assert.ok(dps < WASH_RATE, 'capybaran ska klara sig i dammen mot sämsta vapnet');
+    else assert.ok(dps > WASH_RATE, `${id} ska inte kunna gömma sig i dammen`);
   }
 });
 
@@ -57,6 +75,13 @@ test('banorna har olika fingeravtryck', () => {
 test('dammen räknas som damm', () => {
   assert.ok(inPond((POND.x0 + POND.x1) / 2, (POND.z0 + POND.z1) / 2));
   assert.ok(!inPond(-30, 30));
+});
+
+test('man tvättar sig bara nere i dammen', () => {
+  const cx = (POND.x0 + POND.x1) / 2, cz = (POND.z0 + POND.z1) / 2;
+  assert.ok(isWashing(cx, -POND.depth, cz));
+  assert.ok(!isWashing(cx, 2, cz));
+  assert.ok(!isWashing(-30, -POND.depth, 30));
 });
 
 test('ett djur går framåt, hoppar och landar igen', () => {

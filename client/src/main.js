@@ -1,7 +1,7 @@
 // Färgjakten – klienten. Startsida, nätverk, spelloop och kamera.
 import * as THREE from 'three';
 import { ANIMALS, ANIMAL_IDS, COLORS, FOODS, PAINT_MAX, SCORE_PLASK, STINK_RADIUS, TICK_RATE, WEAPONS, WIN_SCORE } from '../../shared/constants.js';
-import { MAPS, POND, ceilingHeight, createMap, groundHeight, inBase, inPond, pointHitsWorld } from '../../shared/map.js';
+import { MAPS, ceilingHeight, createMap, groundHeight, inBase, isWashing, pointHitsWorld } from '../../shared/map.js';
 import { createMover, inStink, startFly, stepMover, superHop } from '../../shared/movement.js';
 import { Controls } from './controls.js';
 import { Particles, Projectiles } from './effects.js';
@@ -361,6 +361,7 @@ function resetGame() {
   clouds = [];
   abilityUntil = 0;
   inHome = false;
+  washing = false;
   for (const id of ['home-hint', 'btn-shop', 'btn-zoo']) $(id).classList.remove('on');
   $('btn-shoot').classList.remove('disabled');
   for (const k in hudCache) delete hudCache[k];
@@ -929,10 +930,13 @@ function updateLocal(dt, now) {
     send({ t: 'st', x: mover.x, y: mover.y, z: mover.z, ry: yaw, m: me.moving ? 1 : 0, a: me.air ? 1 : 0, k: tpSeq });
   }
 
-  // Tvätta av färgen i dammen
-  const wash = mover.inWater && myState && myState.me > 0;
-  if (wash && !washing) toast('Du tvättar dig! 🫧');
-  washing = wash;
+  // Tvätta av färgen i dammen – då har man inget vapen i händerna
+  const wash = mover.inWater;
+  if (wash !== washing) {
+    if (wash) toast('Du tvättar dig – inga skott i vattnet! 🫧');
+    washing = wash;
+    $('btn-shoot').classList.toggle('disabled', washing || inHome);
+  }
 
   const home = inBase(mover.x, mover.z) === myBase;
   if (home !== inHome) {
@@ -940,7 +944,7 @@ function updateLocal(dt, now) {
     $('home-hint').classList.toggle('on', home);
     $('btn-shop').classList.toggle('on', home);
     $('btn-zoo').classList.toggle('on', home);
-    $('btn-shoot').classList.toggle('disabled', home);
+    $('btn-shoot').classList.toggle('disabled', home || washing);
     if (!home) {
       closeShop();
       closeZoo();
@@ -973,7 +977,7 @@ function updateLocal(dt, now) {
   $('crosshair').classList.toggle('lock', !!target);
 
   const w = WEAPONS[myState ? myState.w : 0];
-  if (controls.shooting && phase === 'play' && !home && now - lastShot >= 1000 / w.rate) shoot(now, target);
+  if (controls.shooting && phase === 'play' && !home && !washing && now - lastShot >= 1000 / w.rate) shoot(now, target);
 }
 
 // ---------------- Spelloopen ----------------
@@ -1023,11 +1027,13 @@ function frame(now) {
       }
     }
     av.setOpacity(op);
-    // I dammen tvättas färgen bort – bubblor tills man är ren
-    if (s && av.spots.count && inPond(av.pos.x, av.pos.z) && av.pos.y < -POND.depth + 0.3) {
-      if (s.me === 0) av.clearSpots();
-      else if (op > 0.3 && Math.random() < dt * 20) {
-        particles.puff(av.pos.x + (Math.random() - 0.5) * 0.8, av.pos.y + 0.3, av.pos.z + (Math.random() - 0.5) * 0.8, 1, Math.random() < 0.5 ? 0xffffff : 0xbfe8ff, 1.1);
+    // I dammen skrubbar djuret sig – mycket skum medan det är färg kvar, några bubblor när det är rent
+    av.washing = !!s && isWashing(av.pos.x, av.pos.y, av.pos.z);
+    if (av.washing) {
+      if (s.me === 0 && av.spots.count) av.clearSpots();
+      const rate = s.me > 0 ? 30 : 6;
+      if (op > 0.3 && Math.random() < dt * rate) {
+        particles.puff(av.pos.x + (Math.random() - 0.5) * 0.9, av.pos.y + 0.3 + Math.random() * 0.9, av.pos.z + (Math.random() - 0.5) * 0.9, 1, Math.random() < 0.5 ? 0xffffff : 0xbfe8ff, 1.1);
       }
     }
     const gy = groundHeight(map, av.pos.x, av.pos.z, av.pos.y + 0.1);

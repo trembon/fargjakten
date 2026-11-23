@@ -141,12 +141,13 @@ export const STINK_SLOW = 0.5;
 export const ANIMAL_IDS = Object.keys(ANIMALS);
 
 // Skotten tar aldrig slut – vapnen skiljer sig i takt, skada, form och räckvidd (meter).
+// Sämsta vapnet färgar lite snabbare än dammen tvättar – utom på tåliga capybaran.
 export const WEAPONS = [
   {
     name: "Vattenpistol",
     price: 0,
-    rate: 3.4,
-    damage: 12,
+    rate: 3.2,
+    damage: 8,
     speed: 24,
     gravity: 8,
     count: 1,
@@ -158,8 +159,8 @@ export const WEAPONS = [
   {
     name: "Färgblaster",
     price: 25,
-    rate: 6.8,
-    damage: 10,
+    rate: 6,
+    damage: 5.5,
     speed: 28,
     gravity: 6,
     count: 1,
@@ -171,8 +172,8 @@ export const WEAPONS = [
   {
     name: "Regnbågskanon",
     price: 60,
-    rate: 2.1,
-    damage: 9,
+    rate: 2.2,
+    damage: 4,
     speed: 24,
     gravity: 8,
     count: 5,
@@ -185,7 +186,7 @@ export const WEAPONS = [
   {
     name: "Färgbazooka",
     price: 60,
-    rate: 1.0,
+    rate: 1.1,
     damage: 40,
     speed: 20,
     gravity: 10,
@@ -199,7 +200,7 @@ export const WEAPONS = [
     name: "Superslangen",
     price: 100,
     rate: 10,
-    damage: 9,
+    damage: 6,
     speed: 34,
     gravity: 3,
     count: 1,
@@ -209,6 +210,9 @@ export const WEAPONS = [
     range: 26,
   },
 ];
+
+// Ungefärlig skada per sekund om alla skott träffar. Ska öka med priset (de två 60-vapnen lika).
+export const weaponDps = (w) => w.rate * w.damage * w.count;
 
 export const FOODS = [
   { id: "apple", name: "Äpple", value: 1, weight: 5 },
