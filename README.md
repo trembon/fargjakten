@@ -6,16 +6,19 @@ färgvapen, samla mat och köp bättre vapen hemma i din bas. Spelas i Safari p�
 Spelet består av en liten Node-server som kör spelets regler (träffar, poäng, botar) och skickar en
 Three.js-klient till webbläsaren. Alla i huset spelar mot samma server – det behövs ingen internetanslutning.
 
+Koden finns på GitHub: [github.com/trembon/fargjakten](https://github.com/trembon/fargjakten).
+
 ## Starta med Docker (på hemservern)
 
-Varje push till GitHub bygger en ny container och lägger den i GitHub Container Registry
-(`ghcr.io/<github-användare>/<repo>`, se [CI](#ci-github-actions)). På servern:
+Varje push till GitHub bygger en ny container och lägger den i GitHub Container Registry som
+[`ghcr.io/trembon/fargjakten`](https://github.com/trembon/fargjakten/pkgs/container/fargjakten)
+(se [CI](#ci-github-actions)). På servern:
 
 ```bash
-docker run -d --name fargjakten -p 4321:4321 --restart unless-stopped ghcr.io/trembon/caspian-spel:latest
+docker run -d --name fargjakten -p 4321:4321 --restart unless-stopped ghcr.io/trembon/fargjakten:latest
 ```
 
-eller med `docker compose up -d` (se [docker-compose.yml](docker-compose.yml) – byt bildnamnet om repot heter något annat).
+eller med `docker compose up -d` (se [docker-compose.yml](docker-compose.yml)).
 Öppna sedan `http://<serverns-ip>:4321` i Safari på iPad/iPhone.
 
 - Uppdatera till senaste versionen: `docker compose pull && docker compose up -d`
@@ -31,6 +34,8 @@ eller med `docker compose up -d` (se [docker-compose.yml](docker-compose.yml) �
 Kräver [Node.js](https://nodejs.org) 24 eller senare.
 
 ```bash
+git clone https://github.com/trembon/fargjakten.git
+cd fargjakten
 npm install
 npm run dev
 ```
@@ -113,5 +118,5 @@ npm test
 
 1. `npm ci`, `npm run check` och `npm test`.
 2. Bygger Docker-containern ([Dockerfile](Dockerfile)). Vid push (inte PR) läggs den i
-   `ghcr.io/<användare>/<repo>` med taggarna `sha-<commit>`, grenens namn och `latest` (bara från standardgrenen),
+   `ghcr.io/trembon/fargjakten` med taggarna `sha-<commit>`, grenens namn och `latest` (bara från standardgrenen),
    och sedan startas den och kollas att den svarar.
