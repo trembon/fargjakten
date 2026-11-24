@@ -1,7 +1,7 @@
 // Spelets regler: lobby, rundor, skott, träffar, mat, butik och förmågor.
 // Faser: 'idle' (inget spel – någon får starta ett) → 'play' → 'end' (resultat) → 'idle'.
 import {
-  ANIMALS, ANIMAL_IDS, BOT_NAMES, COLORS, FOODS, INTERMISSION_SECONDS, MAX_FOOD, MAX_PLAYERS,
+  ANIMALS, ANIMAL_IDS, BOT_NAMES, COLORS, clampWin, FOODS, INTERMISSION_SECONDS, MAX_FOOD, MAX_PLAYERS,
   PAINT_MAX, SCORE_PLASK, SPAWN_PROTECT, TEAM_COUNT, TICK_RATE, WASH_RATE, WEAPONS, WIN_SCORE,
 } from '../shared/constants.js';
 import {
@@ -34,7 +34,9 @@ export class Game {
     this.phaseEnds = 0; // bara resultatpausen har en tid
     this.emptySince = 0;
     this.lobbyTimer = 0;
-    this.winScore = Number(process.env.WIN_SCORE) || WIN_SCORE;
+    // WIN_SCORE i miljön tvingar fram vinstgränsen för alla spel (t.ex. lågt för att testa rundslut)
+    this.forcedWin = Number(process.env.WIN_SCORE) || 0;
+    this.winScore = this.forcedWin || WIN_SCORE;
     this.lastTick = Date.now();
     this.foodTimer = 0;
     // Spelare som gått ut (sid → { p, at }) – köp och poäng finns kvar om de kommer tillbaka
@@ -101,6 +103,7 @@ export class Game {
       this.mapId = mapInfo(msg.map).id;
       this.map = createMap(this.mapId);
       this.botCount = Math.max(0, Math.min(4, msg.bots | 0));
+      this.winScore = this.forcedWin || clampWin(msg.win);
       this.food.clear();
       this.projectiles = [];
       this.decoys = [];

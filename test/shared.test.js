@@ -1,9 +1,19 @@
 // Enhetstester för det som delas mellan server och klient: inställningar, banor och rörelse.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ANIMALS, ANIMAL_IDS, COLORS, TEAM_COUNT, WASH_RATE, WEAPONS, weaponDps } from '../shared/constants.js';
+import { ANIMALS, ANIMAL_IDS, COLORS, TEAM_COUNT, WASH_RATE, WEAPONS, WIN_SCORE, clampWin, weaponDps } from '../shared/constants.js';
 import { BASES, MAPS, baseSpawn, createMap, groundHeight, inBase, inPond, isWashing, mapInfo, POND } from '../shared/map.js';
 import { createMover, inStink, stepMover } from '../shared/movement.js';
+
+test('vinstgränsen rättas till ett heltal mellan 10 och 99', () => {
+  assert.equal(clampWin(25), 25);
+  assert.equal(clampWin('42'), 42);
+  assert.equal(clampWin(12.7), 12);
+  assert.equal(clampWin(5), 10);
+  assert.equal(clampWin(150), 99);
+  assert.equal(clampWin('hej'), WIN_SCORE);
+  assert.equal(clampWin(undefined), WIN_SCORE);
+});
 
 test('alla djur har de värden rörelsen behöver', () => {
   assert.equal(ANIMAL_IDS.length, 8);

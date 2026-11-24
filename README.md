@@ -59,7 +59,8 @@ Appen märker också själv när det finns en ny version och visar en gul knapp.
 - **⬆ Hoppa**, **★ Förmåga**, **🛒 Butik** och **🐾 Djur** (syns när du är hemma i din bas – där byter du djur gratis, vapen och mat följer med)
 - Siktet blir rött när det hjälper dig att sikta på någon.
 - Färgen du väljer är ditt **lag** (röd, blå, gul eller grön) – och din bas. Lagkamrater kan inte färga varandra.
-- Blir någon helt färgad blir det **PLASK!** (+1 ⭐) och djuret skickas hem. Första laget till 10 ⭐ vinner rundan.
+- Blir någon helt färgad blir det **PLASK!** (+1 ⭐) och djuret skickas hem. Första laget till 10 ⭐ vinner rundan
+  (den som startar ett nytt spel kan välja 10–99 plask på startsidan).
 - Hoppa i dammen för att tvätta bort färgen från dig. Medan du tvättar dig kan du inte skjuta. Bara den tåliga capybaran klarar sig mot vattenpistolen när den tvättar sig.
 - Dyrare vapen färgar snabbare. Regnbågskanonen och Färgbazookan (60 mat var) är lika starka, och Superslangen är starkast.
 - Färgen når inte hur långt som helst – varje vapen har sin räckvidd.
@@ -67,7 +68,7 @@ Appen märker också själv när det finns en ny version och visar en gul knapp.
 - Färgfläckar i världen torkar bort efter ca 30 sekunder.
 - Går man ut (**🚪 Lämna spelet** i menyn) eller tappar nätet behåller man mat, köpta vapen och poäng resten av rundan.
   Tappar iPaden kontakten utan att märka det ansluter spelet själv igen inom några sekunder.
-- Lagets ⭐ räknas ihop. Första laget till **10** vinner rundan.
+- Lagets ⭐ räknas ihop. Första laget till **10** (eller det antal som valdes när spelet startades) vinner rundan.
 
 | Djur | Special | ★ Förmåga |
 |------|---------|-----------|
@@ -92,7 +93,8 @@ På datorn: WASD = gå, klicka för att låsa musen och titta, klick = skjut, me
 - Lägg till `?fps` i adressen för att se bildfrekvens, ping och största lucka mellan serveruppdateringar (visar om lagg är grafik eller nätverk). Spelet sänker själv upplösningen om enheten är långsam (t.ex. iPad Air 2).
 - `node scripts/test-client.js` – snabbtest som startar ett spel (eller går med i det som pågår) och skjuter på en bot i ett annat lag. `MAP=town` väljer Byn.
 - Banorna byggs i `shared/map.js` (`MAPS`, `buildPark`, `buildTown`).
-- Miljövariabeln `WIN_SCORE` ändrar hur många poäng som vinner (t.ex. lågt för att testa rundslut).
+- Miljövariabeln `WIN_SCORE` tvingar fram hur många poäng som vinner i alla spel (t.ex. lågt för att testa rundslut)
+  och går då före valet på startsidan.
 
 ### Tester och validering
 

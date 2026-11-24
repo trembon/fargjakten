@@ -2,7 +2,15 @@
 
 export const PORT = 4321;
 export const TICK_RATE = 20; // server-uppdateringar per sekund
-export const WIN_SCORE = 10; // första laget till 10 plask vinner rundan
+export const WIN_SCORE = 10; // första laget till 10 plask vinner rundan (om inget annat väljs)
+export const WIN_MIN = 10; // man kan välja 10–99 plask när man startar ett nytt spel
+export const WIN_MAX = 99;
+// Gör om ett valt antal plask till ett heltal inom gränserna (skräp blir standardvärdet)
+export function clampWin(v) {
+  const n = Math.floor(Number(v));
+  if (!Number.isFinite(n)) return WIN_SCORE;
+  return Math.max(WIN_MIN, Math.min(WIN_MAX, n));
+}
 export const INTERMISSION_SECONDS = 8;
 export const PAINT_MAX = 100;
 export const MAX_PLAYERS = 8;

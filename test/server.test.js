@@ -47,13 +47,15 @@ test('man kan starta ett spel med botar via WebSocket', async () => {
   const got = {};
   ws.on('message', (raw) => { const m = JSON.parse(raw); got[m.t] ??= m; });
   await new Promise((r, j) => { ws.on('open', r); ws.on('error', j); });
-  ws.send(JSON.stringify({ t: 'create', map: 'town', bots: 2, name: 'Testare', animal: 'monkey', color: 'blue' }));
+  ws.send(JSON.stringify({ t: 'create', map: 'town', bots: 2, win: 25, name: 'Testare', animal: 'monkey', color: 'blue' }));
   const deadline = Date.now() + 5000;
   while (!(got.welcome && got.snap) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 50));
   ws.close();
   assert.ok(got.lobby, 'fick ingen lobby');
   assert.ok(got.welcome, 'fick inget välkommen');
   assert.equal(got.welcome.map, 'town');
+  assert.equal(got.welcome.win, 25, 'den valda vinstgränsen ska gälla');
+  assert.equal(got.snap.win, 25);
   assert.ok(got.welcome.animals.includes('skunk'), 'servern ska berätta vilka djur den känner till');
   assert.ok(got.snap, 'fick ingen ögonblicksbild');
   assert.equal(got.snap.ps.filter((p) => p.bot).length, 2);

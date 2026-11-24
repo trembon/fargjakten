@@ -1,6 +1,6 @@
 // Färgjakten – klienten. Startsida, nätverk, spelloop och kamera.
 import * as THREE from 'three';
-import { ANIMALS, ANIMAL_IDS, COLORS, FOODS, PAINT_MAX, SCORE_PLASK, STINK_RADIUS, TICK_RATE, WEAPONS, WIN_SCORE } from '../../shared/constants.js';
+import { ANIMALS, ANIMAL_IDS, COLORS, FOODS, clampWin, PAINT_MAX, SCORE_PLASK, STINK_RADIUS, TICK_RATE, WEAPONS, WIN_SCORE } from '../../shared/constants.js';
 import { MAPS, ceilingHeight, createMap, groundHeight, inBase, isWashing, pointHitsWorld } from '../../shared/map.js';
 import { createMover, inStink, startFly, stepMover, superHop } from '../../shared/movement.js';
 import { Controls } from './controls.js';
@@ -27,8 +27,9 @@ for (const ev of ['gesturestart', 'gesturechange', 'dblclick']) document.addEven
 
 // ---------------- Inställningar som sparas ----------------
 
-const prefs = { name: '', animal: 'capybara', color: 'red', bots: 2, map: 'park' };
+const prefs = { name: '', animal: 'capybara', color: 'red', bots: 2, map: 'park', win: WIN_SCORE };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('fargjakten') || '{}')); } catch { /* inget sparat */ }
+prefs.win = clampWin(prefs.win);
 if (!COLORS.some((c) => c.id === prefs.color)) prefs.color = 'red'; // gamla färger finns inte längre
 if (!MAPS.some((m) => m.id === prefs.map)) prefs.map = 'park';
 const savePrefs = () => { try { localStorage.setItem('fargjakten', JSON.stringify(prefs)); } catch { /* privat läge */ } };
@@ -179,6 +180,13 @@ function buildLobby() {
       $(segId).appendChild(b);
     }
   }
+  // Vinstgränsen: bara siffror, max två, och rättas till 10–99 när man är klar
+  const win = $('win');
+  win.value = prefs.win;
+  win.addEventListener('input', () => { win.value = win.value.replace(/\D/g, '').slice(0, 2); });
+  win.addEventListener('change', readWin);
+  win.addEventListener('blur', readWin);
+  win.addEventListener('keydown', (e) => { if (e.key === 'Enter') win.blur(); });
   $('play').onclick = start;
   $('name').addEventListener('keydown', (e) => { if (e.key === 'Enter') { $('name').blur(); } });
   refreshLobby();
@@ -200,13 +208,19 @@ function refreshLobby() {
   if (!L) status.textContent = 'Ansluter till servern… 🔌';
   else if (L.phase === 'idle') status.textContent = 'Inget spel just nu – välj bana och starta ett! 🎨';
   else {
-    const title = L.phase === 'end' ? 'Rundan är slut – strax kan ni starta ett nytt spel ⏳' : `Ett spel pågår på ${esc(L.mapName)}!`;
+    const title = L.phase === 'end' ? 'Rundan är slut – strax kan ni starta ett nytt spel ⏳' : `Ett spel pågår på ${esc(L.mapName)} – först till ${L.win} ⭐!`;
     const scores = L.ts.map((v, i) => `<span style="background:${css(COLORS[i].hex)}">${v}</span>`).join('');
     const who = L.players.length
       ? L.players.map((p) => `<span><i style="background:${css(COLORS[p.tm].hex)}"></i>${esc(p.n)}${p.bot ? ' 🤖' : ''} · ${ANIMALS[p.an]?.name || ''}</span>`).join('')
       : '<span>Alla har gått ut – spelet stängs snart om ingen går med</span>';
     status.innerHTML = `${title}<div class="scores">${scores}</div><div class="who">${who}</div>`;
   }
+}
+
+function readWin() {
+  prefs.win = $('win').value === '' ? prefs.win : clampWin($('win').value);
+  $('win').value = prefs.win;
+  savePrefs();
 }
 
 function start() {
@@ -217,14 +231,14 @@ function start() {
     return;
   }
   prefs.name = name;
-  savePrefs();
+  readWin();
   unlockAudio();
   if (!lobbyInfo || !ws || ws.readyState !== 1) {
     $('lobby-msg').textContent = 'Ansluter… försök igen om en stund';
     return;
   }
   const who = { name, animal: prefs.animal, color: prefs.color, sid };
-  if (lobbyInfo.phase === 'idle') send({ t: 'create', map: prefs.map, bots: prefs.bots, ...who });
+  if (lobbyInfo.phase === 'idle') send({ t: 'create', map: prefs.map, bots: prefs.bots, win: prefs.win, ...who });
   else if (lobbyInfo.phase === 'play') send({ t: 'join', ...who });
   else return;
   $('lobby-msg').textContent = 'Startar…';
